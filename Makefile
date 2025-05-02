@@ -1,5 +1,11 @@
+FLAGS = -gcflags=all=-l -parallel=1
+
 dep:
 	go mod tidy
 
 test:
-	go test -gcflags=all=-l -parallel=1 ./...
+	go test $(FLAGS) ./...
+
+test-no-cache:
+	go test $(FLAGS) -count=1 ./...
+
