@@ -93,8 +93,6 @@ func TestServer_mDNS(t *testing.T) {
 }
 
 func TestServer_bleAdvertisements(t *testing.T) {
-	// skipped until https://github.com/espressif/esp-hosted/issues/453 not resolved
-	t.Skip()
 	t.Run("adapter_available", func(t *testing.T) {
 		isAdapterStarted := false
 

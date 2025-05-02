@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/hashicorp/mdns"
 	"tinygo.org/x/bluetooth"
@@ -114,11 +115,15 @@ func newBLEAdvertisement(adapter *bluetooth.Adapter, hostname string) (*bluetoot
 
 	ad := adapter.DefaultAdvertisement()
 
-	bleUUID := bluetooth.UUID{0, 0, 0xfe, 0x2c}
+	bleUUID := bluetooth.New16BitUUID(0xfe2c)
 	err := ad.Configure(bluetooth.AdvertisementOptions{
-		ServiceUUIDs: []bluetooth.UUID{bleUUID},
-		ServiceData:  []bluetooth.ServiceDataElement{{UUID: bleUUID, Data: []byte(randomString(10))}},
-		LocalName:    fmt.Sprintf("%s QuickShare", hostname),
+		LocalName:   fmt.Sprintf("%s QuickShare", hostname),
+		ServiceData: []bluetooth.ServiceDataElement{{UUID: bleUUID, Data: []byte(randomString(10))}},
+		Interval:    bluetooth.NewDuration(5 * time.Second),
+		ManufacturerData: []bluetooth.ManufacturerDataElement{
+			{CompanyID: 0xffff, Data: []byte{0x01, 0x02}},
+		},
+		AdvertisementType: bluetooth.AdvertisingTypeInd,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("configure default ble advertisements: %w", err)

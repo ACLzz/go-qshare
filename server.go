@@ -2,7 +2,6 @@ package goqshare
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/hashicorp/mdns"
@@ -24,7 +23,7 @@ func (s *Server) Listen() error {
 	s.mDNSServer = mDNSServer
 
 	if err := s.ad.Start(); err != nil {
-		log.Default().Printf("ble advertisements not started: %s", err.Error())
+		return fmt.Errorf("start ble advertisement: %w", err)
 	}
 	return nil
 }
@@ -35,7 +34,7 @@ func (s *Server) Stop() (gErr error) {
 	}
 
 	if err := s.ad.Stop(); err != nil && !strings.Contains(err.Error(), "advertisement is not started") {
-		gErr = fmt.Errorf("%w: stop ble advertisements: %w", gErr, err)
+		gErr = fmt.Errorf("%w: stop ble advertisement: %w", gErr, err)
 	}
 
 	return gErr
