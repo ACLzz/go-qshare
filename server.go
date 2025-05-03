@@ -12,6 +12,7 @@ type Server struct {
 	mDNSService *mdns.MDNSService
 	ad          *bluetooth.Advertisement
 
+	isStarted  bool
 	mDNSServer *mdns.Server
 }
 
@@ -25,10 +26,15 @@ func (s *Server) Listen() error {
 	if err := s.ad.Start(); err != nil {
 		return fmt.Errorf("start ble advertisement: %w", err)
 	}
+	s.isStarted = true
 	return nil
 }
 
 func (s *Server) Stop() (gErr error) {
+	if !s.isStarted {
+		return nil
+	}
+
 	if err := s.mDNSServer.Shutdown(); err != nil {
 		gErr = fmt.Errorf("%w: shutdown mDNS server: %w", gErr, err)
 	}

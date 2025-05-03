@@ -2,6 +2,7 @@ package goqshare
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net"
@@ -13,24 +14,30 @@ import (
 	"tinygo.org/x/bluetooth"
 )
 
-const TXT_RECORD = 0b00011110
-const QS_TYPE = "_FC9F5ED42C8A._tcp"
-const ASCII_MAX = 126
-const ASCII_MIN = 32
+const ServiceType = "_FC9F5ED42C8A._tcp"
+const txt_record = 0b00011110
+const ascii_max = 126
+const ascii_min = 32
 
 var alphaNumRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
+var (
+	ErrInvalidPort     = errors.New("invalid port value")
+	ErrInvalidAdapter  = errors.New("invalid adapter")
+	ErrInvalidEndpoint = errors.New("invalid endpoint")
+)
+
 type serverBuilder struct {
 	hostname string
-	port     uint
-	ipv4     net.IP
-	ipv6     net.IP
+	port     int
+	ipv4     net.IP // FIXME: currently not used
+	endpoint []byte
 	adapter  *bluetooth.Adapter
 
 	isHostnameSet         bool
 	isPortSet             bool
 	isIPv4Set             bool
-	isIPv6Set             bool
+	isEndpointSet         bool
 	isBluetoothAdapterSet bool
 }
 
@@ -50,15 +57,15 @@ func (b *serverBuilder) WithIPv4(ipv4 net.IP) *serverBuilder {
 	return b
 }
 
-func (b *serverBuilder) WithIPv6(ipv6 net.IP) *serverBuilder {
-	b.ipv6 = ipv6
-	b.isIPv6Set = true
+func (b *serverBuilder) WithPort(port int) *serverBuilder {
+	b.port = port
+	b.isPortSet = true
 	return b
 }
 
-func (b *serverBuilder) WithPort(port uint) *serverBuilder {
-	b.port = port
-	b.isPortSet = true
+func (b *serverBuilder) WithEndpoint(endpoint string) *serverBuilder {
+	b.endpoint = []byte(endpoint)
+	b.isEndpointSet = true
 	return b
 }
 
@@ -69,22 +76,16 @@ func (b *serverBuilder) WithAdapter(adapter *bluetooth.Adapter) *serverBuilder {
 }
 
 func (b *serverBuilder) Build() (*Server, error) {
-	hostname, err := b.getHostname()
-	if err != nil {
-		return nil, fmt.Errorf("get builder hostname: %w", err)
+	if err := b.propagateDefaultValues(); err != nil {
+		return nil, fmt.Errorf("propagate default values: %w", err)
 	}
 
-	port, err := b.getPort()
-	if err != nil {
-		return nil, fmt.Errorf("get port: %w", err)
-	}
-
-	mDNSService, err := newMDNSService(hostname, port, b.getIPv4(), b.getIPv6())
+	mDNSService, err := newMDNSService(b.hostname, b.port)
 	if err != nil {
 		return nil, fmt.Errorf("new mDNS service: %w", err)
 	}
 
-	ad, err := newBLEAdvertisement(b.getAdapter(), hostname)
+	ad, err := newBLEAdvertisement(b.adapter, b.hostname)
 	if err != nil {
 		return nil, fmt.Errorf("create ble advertisement: %w", err)
 	}
@@ -97,12 +98,22 @@ func (b *serverBuilder) Build() (*Server, error) {
 	return &server, nil
 }
 
-func newMDNSService(hostname string, port int, ipv4, ipv6 net.IP) (*mdns.MDNSService, error) {
-	txt := []string{strconv.Itoa(TXT_RECORD), randomString(16), hostname}
-	ips := []net.IP{ipv4, ipv6}
-	mDNSService, err := mdns.NewMDNSService(newName(), QS_TYPE, "", hostname, port, ips, txt)
+func newMDNSService(hostname string, port int) (*mdns.MDNSService, error) {
+	txt := []string{strconv.Itoa(txt_record), randomString(16), hostname}
+
+	origHostName, err := os.Hostname()
 	if err != nil {
-		return nil, fmt.Errorf("cannot set up mDNS service: %w", err)
+		return nil, fmt.Errorf("get original hostname of machine: %w", err)
+	}
+
+	ips, err := net.LookupIP(origHostName)
+	if err != nil {
+		return nil, fmt.Errorf("determine host IP addresses for host: %w", err)
+	}
+
+	mDNSService, err := mdns.NewMDNSService(newName(), ServiceType, "", hostname, port, ips, txt)
+	if err != nil {
+		return nil, fmt.Errorf("set up mDNS service: %w", err)
 	}
 
 	return mDNSService, nil
@@ -132,73 +143,114 @@ func newBLEAdvertisement(adapter *bluetooth.Adapter, hostname string) (*bluetoot
 	return ad, nil
 }
 
-func (b *serverBuilder) getHostname() (string, error) {
+type propagateDefaultValueFn func() error
+
+func (b *serverBuilder) propagateDefaultValues() error {
+	funcs := []propagateDefaultValueFn{
+		b.propHostname,
+		b.propPort,
+		b.propIPv4,
+		b.propAdapter,
+		b.propEndpoint,
+	}
+
+	var err error
+	for i := range funcs {
+		err = funcs[i]()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *serverBuilder) propHostname() error {
 	if b.isHostnameSet {
-		return b.hostname + ".", nil
+		b.hostname += "."
+		return nil
 	}
 
 	hostName, err := os.Hostname()
 	if err != nil {
-		return "", fmt.Errorf("get os hostname: %w", err)
+		return fmt.Errorf("get os hostname: %w", err)
 	}
 	hostName += "."
 
-	return hostName, nil
+	b.hostname = hostName
+	return nil
 }
 
-func (b *serverBuilder) getPort() (int, error) {
+func (b *serverBuilder) propPort() error {
 	if b.isPortSet {
-		return int(b.port), nil
+		if b.port <= 1024 {
+			return ErrInvalidPort
+		}
+		return nil
 	}
 
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
-		return 0, fmt.Errorf("open tcp socket: %w", err)
+		return fmt.Errorf("open tcp socket: %w", err)
 	}
 	defer l.Close()
 
-	return l.Addr().(*net.TCPAddr).Port, nil
+	b.port = l.Addr().(*net.TCPAddr).Port
+	return nil
 }
 
-func (b *serverBuilder) getIPv4() net.IP {
+func (b *serverBuilder) propIPv4() error {
 	if b.isIPv4Set {
-		return b.ipv4
+		return nil
 	}
 
-	return net.IPv4zero
+	b.ipv4 = net.IPv4zero
+	return nil
 }
 
-func (b *serverBuilder) getIPv6() net.IP {
-	if b.isIPv6Set {
-		return b.ipv6
-	}
-
-	return net.IPv6zero
-}
-
-func (b *serverBuilder) getAdapter() *bluetooth.Adapter {
+func (b *serverBuilder) propAdapter() error {
 	if b.isBluetoothAdapterSet {
-		return b.adapter
+		if b.adapter == nil {
+			return ErrInvalidAdapter
+		}
+		return nil
 	}
 
-	return bluetooth.DefaultAdapter
+	b.adapter = bluetooth.DefaultAdapter
+	return nil
+}
+
+func (b *serverBuilder) propEndpoint() error {
+	if b.isEndpointSet {
+		if len(b.endpoint) != 4 {
+			return ErrInvalidEndpoint
+		}
+		return nil
+	}
+
+	endpoint := make([]byte, 4)
+	for i := range 4 {
+		endpoint[i] = byte(alphaNumRunes[rand.IntN(len(alphaNumRunes))])
+	}
+	b.endpoint = endpoint
+
+	return nil
 }
 
 func randomString(length uint) string {
 	s := make([]rune, length)
 	for i := range length {
-		s[i] = rune(rand.IntN(ASCII_MAX-ASCII_MIN) + ASCII_MIN)
+		s[i] = rune(rand.IntN(ascii_max-ascii_min) + ascii_min)
 	}
 	return string(s)
 }
 
 func newName() string {
 	name := make([]byte, 10)
+	name[0] = 0x23
 	for i := range 4 {
 		name[1+i] = byte(alphaNumRunes[rand.IntN(len(alphaNumRunes))])
 	}
 
-	name[0] = 0x23
 	copy(name[5:], []byte{0xFC, 0x9F, 0x5E})
-	return base64.URLEncoding.EncodeToString([]byte(name))
+	return base64.URLEncoding.EncodeToString(name)
 }
