@@ -4,43 +4,70 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/mdns"
+	"github.com/grandcat/zeroconf"
 	"tinygo.org/x/bluetooth"
 )
 
-type Server struct {
-	mDNSService *mdns.MDNSService
-	ad          *bluetooth.Advertisement
+type (
+	Server struct {
+		mDNSConf mDNSConfig
+		bleAD    *bluetooth.Advertisement
 
-	isStarted  bool
-	mDNSServer *mdns.Server
-}
+		mDNSServer *zeroconf.Server
+	}
+
+	mDNSConfig struct {
+		name string
+		port int
+		txt  string
+	}
+)
+
+const MDNsServiceType = "_FC9F5ED42C8A._tcp"
 
 func (s *Server) Listen() error {
-	mDNSServer, err := mdns.NewServer(&mdns.Config{Zone: s.mDNSService})
-	if err != nil {
-		return fmt.Errorf("set up mDNS server: %w", err)
-	}
-	s.mDNSServer = mDNSServer
+	if err := s.listen(); err != nil {
+		if stopErr := s.Stop(); stopErr != nil {
+			return fmt.Errorf("stopping server on failed start: %w: %w", stopErr, err)
+		}
 
-	if err := s.ad.Start(); err != nil {
-		return fmt.Errorf("start ble advertisement: %w", err)
+		return err
 	}
-	s.isStarted = true
+
 	return nil
 }
 
-func (s *Server) Stop() (gErr error) {
-	if !s.isStarted {
-		return nil
+func (s *Server) listen() error {
+	var err error
+	s.mDNSServer, err = zeroconf.Register(
+		s.mDNSConf.name,
+		MDNsServiceType,
+		"local.",
+		s.mDNSConf.port,
+		[]string{"n=" + s.mDNSConf.txt},
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("start mDNS server: %w", err)
 	}
 
-	if err := s.mDNSServer.Shutdown(); err != nil {
-		gErr = fmt.Errorf("%w: shutdown mDNS server: %w", gErr, err)
+	if err := s.bleAD.Start(); err != nil {
+		return fmt.Errorf("start ble advertisement: %w", err)
 	}
 
-	if err := s.ad.Stop(); err != nil && !strings.Contains(err.Error(), "advertisement is not started") {
-		gErr = fmt.Errorf("%w: stop ble advertisement: %w", gErr, err)
+	return nil
+}
+
+func (s *Server) Stop() error {
+	var err, gErr error
+	if s.mDNSServer != nil {
+		s.mDNSServer.Shutdown()
+	}
+
+	if s.bleAD != nil {
+		if err = s.bleAD.Stop(); err != nil && !strings.Contains(err.Error(), "advertisement is not started") {
+			gErr = fmt.Errorf("%w: stop ble advertisement: %w", gErr, err)
+		}
 	}
 
 	return gErr
