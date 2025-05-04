@@ -9,6 +9,6 @@ const (
 	LaptopDevice
 )
 
-func (t DeviceType) isValid() bool {
+func (t DeviceType) IsValid() bool {
 	return t <= LaptopDevice
 }

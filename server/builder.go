@@ -1,4 +1,4 @@
-package goqshare
+package server
 
 import (
 	"encoding/base64"
@@ -6,6 +6,8 @@ import (
 	"math/rand/v2"
 	"net"
 	"os"
+
+	qshare "github.com/ACLzz/go-qshare"
 
 	"tinygo.org/x/bluetooth"
 )
@@ -20,7 +22,7 @@ type serverBuilder struct {
 	port     int
 	endpoint []byte
 	adapter  *bluetooth.Adapter
-	device   DeviceType
+	device   qshare.DeviceType
 
 	isHostnameSet         bool
 	isPortSet             bool
@@ -29,7 +31,7 @@ type serverBuilder struct {
 	isDeviceTypeSet       bool
 }
 
-func NewServerBuilder(clk clock) *serverBuilder {
+func NewServerBuilder(clk qshare.Clock) *serverBuilder {
 	return &serverBuilder{
 		rand: rand.New(clk),
 	}
@@ -59,7 +61,7 @@ func (b *serverBuilder) WithAdapter(adapter *bluetooth.Adapter) *serverBuilder {
 	return b
 }
 
-func (b *serverBuilder) WithDeviceType(device DeviceType) *serverBuilder {
+func (b *serverBuilder) WithDeviceType(device qshare.DeviceType) *serverBuilder {
 	b.device = device
 	b.isDeviceTypeSet = true
 	return b
@@ -75,9 +77,15 @@ func (b *serverBuilder) Build() (*Server, error) {
 		return nil, fmt.Errorf("create ble advertisement: %w", err)
 	}
 
+	cs, err := newCommServer(b.port)
+	if err != nil {
+		return nil, fmt.Errorf("create communication server: %w", err)
+	}
+
 	return &Server{
-		bleAD: bleAD,
-		mDNSConf: mDNSConfig{
+		bleAD:      bleAD,
+		commServer: cs,
+		conf: serverConfig{
 			name: newName(b.endpoint),
 			port: b.port,
 			txt:  newTXT(b.hostname, b.device, b.rand),
@@ -195,13 +203,13 @@ func (b *serverBuilder) propEndpoint() error {
 
 func (b *serverBuilder) propDeviceType() error {
 	if b.isDeviceTypeSet {
-		if !b.device.isValid() {
+		if !b.device.IsValid() {
 			return ErrInvalidDeviceType
 		}
 		return nil
 	}
 
-	b.device = UnknownDevice
+	b.device = qshare.UnknownDevice
 	return nil
 }
 
@@ -215,7 +223,7 @@ func newName(endpoint []byte) string {
 	return base64.RawURLEncoding.EncodeToString(name)
 }
 
-func newTXT(hostname string, device DeviceType, r *rand.Rand) string {
+func newTXT(hostname string, device qshare.DeviceType, r *rand.Rand) string {
 	n := make([]byte, 18+len(hostname))
 	n[0] = byte(device << 1) // set device type and mark service "discoverable"
 

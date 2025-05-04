@@ -1,4 +1,4 @@
-package goqshare_test
+package server_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	qshare "github.com/ACLzz/go-qshare"
+	qserver "github.com/ACLzz/go-qshare/server"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/grandcat/zeroconf"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,7 @@ func TestServer_StartStop(t *testing.T) {
 	clk := qshare.NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
 
 	t.Run("start_stop_with_listen", func(t *testing.T) {
-		server, err := qshare.NewServerBuilder(clk).Build()
+		server, err := qserver.NewServerBuilder(clk).Build()
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -27,7 +28,7 @@ func TestServer_StartStop(t *testing.T) {
 	})
 
 	t.Run("start_stop_without_listen", func(t *testing.T) {
-		server, err := qshare.NewServerBuilder(clk).Build()
+		server, err := qserver.NewServerBuilder(clk).Build()
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -45,7 +46,7 @@ func TestServer_mDNS(t *testing.T) {
 		hostname := "test_hostname"
 		port := 6666
 
-		server, err := qshare.NewServerBuilder(clk).
+		server, err := qserver.NewServerBuilder(clk).
 			WithHostname(hostname).
 			WithPort(port).
 			Build()
@@ -56,7 +57,7 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, err)
 
 		entriesCh := make(chan *zeroconf.ServiceEntry, 2)
-		require.NoError(t, resolv.Browse(context.Background(), qshare.MDNsServiceType, "local.", entriesCh))
+		require.NoError(t, resolv.Browse(context.Background(), qserver.MDNsServiceType, "local.", entriesCh))
 
 		select {
 		case <-entriesCh:
@@ -82,7 +83,7 @@ func TestServer_mDNS(t *testing.T) {
 		machineHostname, err := os.Hostname()
 		require.NoError(t, err)
 
-		server, err := qshare.NewServerBuilder(clk).Build()
+		server, err := qserver.NewServerBuilder(clk).Build()
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -90,7 +91,7 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, err)
 
 		entriesCh := make(chan *zeroconf.ServiceEntry, 2)
-		require.NoError(t, resolv.Browse(context.Background(), qshare.MDNsServiceType, "local.", entriesCh))
+		require.NoError(t, resolv.Browse(context.Background(), qserver.MDNsServiceType, "local.", entriesCh))
 
 		select {
 		case <-entriesCh:
@@ -128,7 +129,7 @@ func TestServer_bleAdvertisements(t *testing.T) {
 			return nil
 		})
 
-		server, err := qshare.NewServerBuilder(clk).
+		server, err := qserver.NewServerBuilder(clk).
 			Build()
 		require.NoError(t, err)
 		require.NotNil(t, server)

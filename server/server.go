@@ -1,4 +1,4 @@
-package goqshare
+package server
 
 import (
 	"fmt"
@@ -10,16 +10,16 @@ import (
 
 type (
 	Server struct {
-		mDNSConf mDNSConfig
-		bleAD    *bluetooth.Advertisement
-
+		conf       serverConfig
+		bleAD      *bluetooth.Advertisement
 		mDNSServer *zeroconf.Server
+		commServer commServer
 	}
 
-	mDNSConfig struct {
+	serverConfig struct {
 		name string
-		port int
 		txt  string
+		port int
 	}
 )
 
@@ -40,16 +40,18 @@ func (s *Server) Listen() error {
 func (s *Server) listen() error {
 	var err error
 	s.mDNSServer, err = zeroconf.Register(
-		s.mDNSConf.name,
+		s.conf.name,
 		MDNsServiceType,
 		"local.",
-		s.mDNSConf.port,
-		[]string{"n=" + s.mDNSConf.txt},
+		s.conf.port,
+		[]string{"n=" + s.conf.txt},
 		nil,
 	)
 	if err != nil {
 		return fmt.Errorf("start mDNS server: %w", err)
 	}
+
+	go s.commServer.Listen()
 
 	if err := s.bleAD.Start(); err != nil {
 		return fmt.Errorf("start ble advertisement: %w", err)
@@ -62,6 +64,10 @@ func (s *Server) Stop() error {
 	var err, gErr error
 	if s.mDNSServer != nil {
 		s.mDNSServer.Shutdown()
+	}
+
+	if err = s.commServer.Stop(); err != nil {
+		gErr = fmt.Errorf("%w: stop communication server: %w", gErr, err)
 	}
 
 	if s.bleAD != nil {

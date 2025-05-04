@@ -1,10 +1,11 @@
-package goqshare
+package server
 
 import (
 	"os"
 	"testing"
 	"time"
 
+	qshare "github.com/ACLzz/go-qshare"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 )
 
 func TestBuilder(t *testing.T) {
-	clk := NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
+	clk := qshare.NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
 	hostname := "test_hostname"
 	patches := gomonkey.NewPatches()
 	patches.ApplyFunc(os.Hostname, func() (string, error) {
@@ -21,14 +22,14 @@ func TestBuilder(t *testing.T) {
 	t.Cleanup(patches.Reset)
 
 	type (
-		expectMDNSConf struct {
+		expectConf struct {
 			name string
 			txt  string
 		}
 
 		expect struct {
-			mDNSConf expectMDNSConf
-			err      error
+			conf expectConf
+			err  error
 		}
 	)
 	tests := map[string]struct {
@@ -37,7 +38,7 @@ func TestBuilder(t *testing.T) {
 	}{
 		"success/default_values": {
 			expect: expect{
-				mDNSConf: expectMDNSConf{
+				conf: expectConf{
 					name: "I2FhYWH8n14AAA",
 					txt:  "AC8vLy8vLy8vLy8vLy8vLy8NdGVzdF9ob3N0bmFtZQ",
 				},
@@ -45,7 +46,7 @@ func TestBuilder(t *testing.T) {
 		},
 		"success/custom_values": {
 			expect: expect{
-				mDNSConf: expectMDNSConf{
+				conf: expectConf{
 					name: "I3NvbWX8n14AAA",
 					txt:  "BC8vLy8vLy8vLy8vLy8vLy8EdGVzdA",
 				},
@@ -54,7 +55,7 @@ func TestBuilder(t *testing.T) {
 				t.Helper()
 				*b = *b.
 					WithAdapter(bluetooth.DefaultAdapter).
-					WithDeviceType(TabletDevice).
+					WithDeviceType(qshare.TabletDevice).
 					WithEndpoint("some").
 					WithHostname("test").
 					WithPort(1234)
@@ -157,9 +158,9 @@ func TestBuilder(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, server)
 
-			assert.Equal(t, tt.expect.mDNSConf.name, server.mDNSConf.name)
-			assert.Equal(t, tt.expect.mDNSConf.txt, server.mDNSConf.txt)
-			assert.Greater(t, server.mDNSConf.port, 1024)
+			assert.Equal(t, tt.expect.conf.name, server.conf.name)
+			assert.Equal(t, tt.expect.conf.txt, server.conf.txt)
+			assert.Greater(t, server.conf.port, 1024)
 			assert.NotNil(t, server.bleAD)
 		})
 	}

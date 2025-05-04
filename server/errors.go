@@ -1,4 +1,4 @@
-package goqshare
+package server
 
 import "errors"
 

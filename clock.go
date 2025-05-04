@@ -7,14 +7,14 @@ import (
 
 // TODO: candidate for separate package
 
-type clock interface {
+type Clock interface {
 	rand.Source
 	Now() time.Time
 }
 
 type utc struct{}
 
-func NewUTC() clock {
+func NewUTC() Clock {
 	return utc{}
 }
 
@@ -26,7 +26,7 @@ func (c utc) Uint64() uint64 {
 	return uint64(c.Now().Unix())
 }
 
-func NewStatic(t time.Time) clock {
+func NewStatic(t time.Time) Clock {
 	return static{
 		t: t,
 	}
