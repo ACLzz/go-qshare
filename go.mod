@@ -5,8 +5,8 @@ go 1.24.2
 require (
 	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/grandcat/zeroconf v1.0.0
-	github.com/hashicorp/mdns v1.0.6
 	github.com/stretchr/testify v1.10.0
+	google.golang.org/protobuf v1.36.6
 	tinygo.org/x/bluetooth v0.11.0
 )
 

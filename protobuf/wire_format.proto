@@ -6,6 +6,7 @@
 // At CL 317565061
 
 syntax = "proto2";
+option go_package = "gen/sharing";
 
 package sharing.nearby;
 
