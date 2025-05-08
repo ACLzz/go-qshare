@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/cipher"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
 	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
+	"google.golang.org/protobuf/proto"
 )
 
 const max_message_length = 32 * 1024 // 32 Kb
@@ -68,11 +70,18 @@ type (
 		conn  net.Conn
 		phase phase
 
+		// TODO: do we need to store this keys here?
+		d2dClientKey []byte
+		d2dServerKey []byte
+
+		d2dEncryptBlock cipher.Block
+		d2dDecryptBlock cipher.Block
+
 		// TODO: leave only necessary info from messages in conn, delete full messages
 		connRequest        *pbConnections.ConnectionRequestFrame
 		ukeyClientInit     *pbSecuregcm.Ukey2ClientInit
 		ukeyClientFinished *pbSecuregcm.Ukey2ClientFinished
-		connResponse       *pbConnections.ConnectionRequestFrame
+		connResponse       *pbConnections.ConnectionResponseFrame
 	}
 
 	phase uint8
@@ -131,18 +140,110 @@ func (cc *commConn) accept(ctx context.Context, wg *sync.WaitGroup) {
 				continue
 			}
 
+			// TODO: make sure it is 12 across different devices
+			if msgLen == 12 { // typical length for keepalive message
+				err = cc.processKeepAliveMessage(msgBuf)
+				if !errors.Is(err, ErrInvalidMessage) {
+					if err != nil {
+						fmt.Printf("ERR: process keep alive message: %s", err.Error())
+					}
+					continue
+				}
+			}
+
 			// process message depending on current phase
 			switch cc.phase {
 			case estSecureConnPhase:
 				err = cc.establishSecureConnection(msgBuf)
+			case pairingPhase:
+				err = cc.pairKey(msgBuf)
 			}
 
 			if err != nil {
+				if errors.Is(err, ErrInvalidMessage) {
+					cc.writeError(pbSecuregcm.Ukey2Alert_BAD_MESSAGE, ErrInvalidMessage.Error())
+				}
+
+				if errors.Is(err, ErrConnWasEndedByClient) {
+					fmt.Println("DBG: conn was ended by client")
+					return
+				}
+
 				fmt.Printf("ERR: process message: %s", err.Error())
 				continue
 			}
 		}
 	}
+}
+
+func (cc *commConn) writeError(t pbSecuregcm.Ukey2Alert_AlertType, msg string) error {
+	alertMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Alert{
+		Type:         t.Enum(),
+		ErrorMessage: proto.String(msg),
+	})
+	if err != nil {
+		return fmt.Errorf("marshal alert message: %w", err)
+	}
+
+	if err := cc.writeUKEYMessage(pbSecuregcm.Ukey2Message_ALERT, alertMsg); err != nil {
+		return fmt.Errorf("write UKEY message: %w", err)
+	}
+
+	return nil
+}
+
+func (cc *commConn) processKeepAliveMessage(msg []byte) error {
+	var frame pbConnections.OfflineFrame
+	if err := proto.Unmarshal(msg, &frame); err != nil {
+		return fmt.Errorf("unmarshal frame: %w", err)
+	}
+
+	if frame.GetV1().GetType() != pbConnections.V1Frame_KEEP_ALIVE {
+		return ErrInvalidMessage
+	}
+
+	if err := cc.writeOfflineFrame(&pbConnections.V1Frame{
+		Type: pbConnections.V1Frame_KEEP_ALIVE.Enum(),
+		KeepAlive: &pbConnections.KeepAliveFrame{
+			Ack: proto.Bool(true),
+		},
+	}); err != nil {
+		return fmt.Errorf("write offline frame: %w", err)
+	}
+
+	return nil
+}
+
+func (cc *commConn) writeOfflineFrame(frame *pbConnections.V1Frame) error {
+	offlineFrame, err := proto.Marshal(&pbConnections.OfflineFrame{
+		Version: pbConnections.OfflineFrame_V1.Enum(),
+		V1:      frame,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal message: %w", err)
+	}
+
+	if err = cc.writeMessage(offlineFrame); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
+
+	return nil
+}
+
+func (cc *commConn) writeUKEYMessage(t pbSecuregcm.Ukey2Message_Type, msg []byte) error {
+	ukeyMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
+		MessageType: t.Enum(),
+		MessageData: msg,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal message: %w", err)
+	}
+
+	if err = cc.writeMessage(ukeyMsg); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
+
+	return nil
 }
 
 func (cc *commConn) writeMessage(data []byte) error {

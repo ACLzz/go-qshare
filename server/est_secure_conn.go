@@ -1,9 +1,12 @@
 package server
 
 import (
+	"crypto/aes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/hkdf"
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"math/big"
 
@@ -13,12 +16,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const targetCipher = pbSecuregcm.Ukey2HandshakeCipher_P256_SHA512
+const (
+	targetCipher = pbSecuregcm.Ukey2HandshakeCipher_P256_SHA512
+	d2dSalt      = "82AA55A0D397F88346CA1CEE8D3909B95F13FA7DEB1D4AB38376B8256DA85510" // TODO: check if it is possible to use random salt
+)
 
 var defaultUKEYMessageVersion = int32(1)
 
 func (cc *commConn) establishSecureConnection(msg []byte) error {
-	var frame pbConnections.V1Frame
+	var frame pbConnections.OfflineFrame
 	if cc.connRequest == nil || cc.ukeyClientFinished != nil {
 		if err := proto.Unmarshal(msg, &frame); err != nil {
 			return fmt.Errorf("unmarshal frame: %w", err)
@@ -38,16 +44,11 @@ func (cc *commConn) establishSecureConnection(msg []byte) error {
 
 	// first seek for the connection request
 	if cc.connRequest == nil {
-		if frame.GetType() != pbConnections.V1Frame_CONNECTION_REQUEST {
+		if frame.GetV1().GetType() != pbConnections.V1Frame_CONNECTION_REQUEST {
 			return ErrInvalidMessage
 		}
 
-		var connRequest pbConnections.ConnectionRequestFrame
-		if err := proto.Unmarshal([]byte(frame.GetConnectionRequest().GetEndpointName()), &connRequest); err != nil {
-			return fmt.Errorf("unmarshal Connection request: %w", err)
-		}
-
-		return cc.processConnRequest(&connRequest)
+		return cc.processConnRequest(frame.GetV1().GetConnectionRequest())
 
 	}
 
@@ -79,18 +80,13 @@ func (cc *commConn) establishSecureConnection(msg []byte) error {
 		return cc.processUKEYFinishedMessage(&clientFinishedMsg)
 	}
 
-	// finally seek for connection response
+	// finally seek for the connection response
 	if cc.connResponse == nil {
-		if frame.GetType() != pbConnections.V1Frame_CONNECTION_REQUEST {
+		if frame.GetV1().GetType() != pbConnections.V1Frame_CONNECTION_RESPONSE {
 			return ErrInvalidMessage
 		}
 
-		// var connResponse pbConnections.ConnectionResponseFrame
-		// if err := proto.Unmarshal([]byte(frame.ConnectionResponse.GetResponse()), &connResponse); err != nil {
-		// 	return fmt.Errorf("unmarshal Connection response: %w", err)
-		// }
-
-		return cc.processConnResponse(frame.GetConnectionRequest())
+		return cc.processConnResponse(frame.GetV1().GetConnectionResponse())
 	}
 
 	return ErrInvalidMessage
@@ -132,11 +128,11 @@ func (cc *commConn) processUKEYInitMessage(msg *pbSecuregcm.Ukey2ClientInit) err
 
 	ukeyMsg, err := newServerInitMessage(privateKey)
 	if err != nil {
-		return fmt.Errorf("marshal UKEY2 Message: %w", err)
+		return fmt.Errorf("marshal UKEY Message: %w", err)
 	}
 
-	if err = cc.writeMessage(ukeyMsg); err != nil {
-		return fmt.Errorf("send UKEY2 Message: %w", err)
+	if err = cc.writeUKEYMessage(pbSecuregcm.Ukey2Message_SERVER_INIT, ukeyMsg); err != nil {
+		return fmt.Errorf("write UKEY Message: %w", err)
 	}
 
 	return nil
@@ -147,29 +143,61 @@ func (cc *commConn) processUKEYFinishedMessage(req *pbSecuregcm.Ukey2ClientFinis
 		return ErrInvalidMessage
 	}
 
-	cc.ukeyClientFinished = req
-
-	serverConnResponse, err := proto.Marshal(&pbConnections.V1Frame{
-		Type:               pbConnections.V1Frame_CONNECTION_RESPONSE.Enum(),
-		ConnectionResponse: &pbConnections.ConnectionResponseFrame{},
-	})
+	psRandKey, err := hkdf.Extract(sha256.New, req.GetPublicKey(), []byte(d2dSalt))
 	if err != nil {
-		return fmt.Errorf("marshal Connection response: %w", err)
+		return fmt.Errorf("create pseudo random key: %w", err)
 	}
 
-	if err = cc.writeMessage(serverConnResponse); err != nil {
-		return fmt.Errorf("write Connection response: %w", err)
+	cc.d2dServerKey, err = hkdf.Expand(sha256.New, psRandKey, "server", 32)
+	if err != nil {
+		return fmt.Errorf("generate server device to device key: %w", err)
 	}
+
+	cc.d2dClientKey, err = hkdf.Expand(sha256.New, psRandKey, "client", 32)
+	if err != nil {
+		return fmt.Errorf("generate client device to device key: %w", err)
+	}
+
+	cc.d2dDecryptBlock, err = aes.NewCipher(cc.d2dClientKey)
+	if err != nil {
+		return fmt.Errorf("create decrypt aes cipher block: %w", err)
+	}
+
+	cc.d2dEncryptBlock, err = aes.NewCipher(cc.d2dServerKey)
+	if err != nil {
+		return fmt.Errorf("create encrupt aes cipher block: %w", err)
+	}
+
+	cc.ukeyClientFinished = req
 	return nil
 }
 
-func (cc *commConn) processConnResponse(req *pbConnections.ConnectionRequestFrame) error {
+func (cc *commConn) processConnResponse(req *pbConnections.ConnectionResponseFrame) error {
 	if req == nil {
 		return ErrInvalidMessage
 	}
 
+	if req.GetResponse() != pbConnections.ConnectionResponseFrame_ACCEPT {
+		return ErrConnWasEndedByClient
+	}
+
+	if err := cc.writeOfflineFrame(&pbConnections.V1Frame{
+		Type: pbConnections.V1Frame_CONNECTION_RESPONSE.Enum(),
+		ConnectionResponse: &pbConnections.ConnectionResponseFrame{
+			Response: pbConnections.ConnectionResponseFrame_ACCEPT.Enum(),
+			OsInfo: &pbConnections.OsInfo{
+				Type: pbConnections.OsInfo_LINUX.Enum(), // TODO: maybe add other oses
+			},
+		},
+	}); err != nil {
+		return fmt.Errorf("write offline frame: %w", err)
+	}
+
 	cc.connResponse = req
-	cc.phase = pairingPhase
+	if err := cc.initParing(); err != nil {
+		return fmt.Errorf("init paring: %w", err)
+	}
+
 	return nil
 }
 
@@ -190,7 +218,7 @@ func newServerInitMessage(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 		return nil, fmt.Errorf("generate random field for UKEY2 Server Init message: %w", err)
 	}
 
-	serverUKEYInit, err := proto.Marshal(&pbSecuregcm.Ukey2ServerInit{
+	ukeyServerInit, err := proto.Marshal(&pbSecuregcm.Ukey2ServerInit{
 		Version:         &defaultUKEYMessageVersion,
 		Random:          random,
 		HandshakeCipher: targetCipher.Enum(),
@@ -200,15 +228,7 @@ func newServerInitMessage(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 		return nil, fmt.Errorf("marshal UKEY2 Server Init response: %w", err)
 	}
 
-	ukeyMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
-		MessageType: pbSecuregcm.Ukey2Message_SERVER_INIT.Enum(),
-		MessageData: serverUKEYInit,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("marshal UKEY2 Message: %w", err)
-	}
-
-	return ukeyMsg, nil
+	return ukeyServerInit, nil
 }
 
 func isAlertUKEY2MessageType(t pbSecuregcm.Ukey2Message_Type) bool {
