@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ACLzz/go-qshare/server/comm"
 	"github.com/grandcat/zeroconf"
 	"tinygo.org/x/bluetooth"
 )
@@ -13,7 +14,7 @@ type (
 		conf       serverConfig
 		bleAD      *bluetooth.Advertisement
 		mDNSServer *zeroconf.Server
-		commServer commServer
+		commServer comm.Server
 	}
 
 	serverConfig struct {

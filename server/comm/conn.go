@@ -1,8 +1,7 @@
-package server
+package comm
 
 import (
 	"context"
-	"crypto/cipher"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/ACLzz/go-qshare/internal/crypt"
 	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
 	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
 	"google.golang.org/protobuf/proto"
@@ -17,92 +17,25 @@ import (
 
 const max_message_length = 32 * 1024 // 32 Kb
 
-type commServer struct {
-	sock   net.Listener
-	wg     *sync.WaitGroup
-	stopCh chan struct{}
-	// TODO: use kind of logger instead of prints
+type commConn struct {
+	conn                net.Conn
+	nextExpectedMessage messageType
+	phase               phase
+	cipher              crypt.Cipher
 }
-
-func newCommServer(port int) (commServer, error) {
-	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return commServer{}, fmt.Errorf("start socket: %w", err)
-	}
-
-	return commServer{
-		sock:   sock,
-		wg:     &sync.WaitGroup{},
-		stopCh: make(chan struct{}, 1),
-	}, nil
-}
-
-func (cs commServer) Listen() {
-	var (
-		conn net.Conn
-		err  error
-	)
-	cs.wg.Add(1)
-	defer cs.wg.Done()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	for {
-		conn, err = cs.sock.Accept()
-		if err != nil {
-			select {
-			case <-cs.stopCh:
-				return
-			default:
-				fmt.Printf("ERR: accept conn: %s", err.Error())
-			}
-			continue
-		}
-
-		cs.wg.Add(1)
-		c := newCommConn(conn)
-		go c.accept(ctx, cs.wg) // TODO: maybe limit amount of gorutines here
-	}
-}
-
-type (
-	commConn struct {
-		conn  net.Conn
-		phase phase
-
-		// TODO: do we need to store this keys here?
-		d2dClientKey []byte
-		d2dServerKey []byte
-
-		d2dEncryptBlock cipher.Block
-		d2dDecryptBlock cipher.Block
-
-		// TODO: leave only necessary info from messages in conn, delete full messages
-		connRequest        *pbConnections.ConnectionRequestFrame
-		ukeyClientInit     *pbSecuregcm.Ukey2ClientInit
-		ukeyClientFinished *pbSecuregcm.Ukey2ClientFinished
-		connResponse       *pbConnections.ConnectionResponseFrame
-	}
-
-	phase uint8
-)
-
-const (
-	estSecureConnPhase phase = iota
-	pairingPhase
-	// ...
-)
 
 func newCommConn(conn net.Conn) commConn {
 	cConn := commConn{
-		conn:  conn,
-		phase: estSecureConnPhase,
+		conn:                conn,
+		nextExpectedMessage: conn_request,
+		phase:               initConnPhase,
+		cipher:              crypt.NewCipher(true),
 	}
 
 	return cConn
 }
 
-func (cc *commConn) accept(ctx context.Context, wg *sync.WaitGroup) {
+func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
 	var (
 		msgLen uint32
 		err    error
@@ -131,7 +64,7 @@ func (cc *commConn) accept(ctx context.Context, wg *sync.WaitGroup) {
 				return
 			}
 
-			fmt.Printf("message length: %d\n", msgLen)
+			fmt.Printf("DBG: message length: %d\n", msgLen)
 			msgBuf := make([]byte, msgLen)
 
 			// fetch message in bytes
@@ -140,28 +73,13 @@ func (cc *commConn) accept(ctx context.Context, wg *sync.WaitGroup) {
 				continue
 			}
 
-			// TODO: make sure it is 12 across different devices
-			if msgLen == 12 { // typical length for keepalive message
-				err = cc.processKeepAliveMessage(msgBuf)
-				if !errors.Is(err, ErrInvalidMessage) {
-					if err != nil {
-						fmt.Printf("ERR: process keep alive message: %s", err.Error())
+			// route the message
+			if err = cc.route(msgBuf); err != nil {
+				if errors.Is(err, ErrInvalidMessage) {
+					if err = cc.writeError(pbSecuregcm.Ukey2Alert_BAD_MESSAGE, ErrInvalidMessage.Error()); err != nil {
+						fmt.Printf("ERR: send error to client: %s", err.Error())
 					}
 					continue
-				}
-			}
-
-			// process message depending on current phase
-			switch cc.phase {
-			case estSecureConnPhase:
-				err = cc.establishSecureConnection(msgBuf)
-			case pairingPhase:
-				err = cc.pairKey(msgBuf)
-			}
-
-			if err != nil {
-				if errors.Is(err, ErrInvalidMessage) {
-					cc.writeError(pbSecuregcm.Ukey2Alert_BAD_MESSAGE, ErrInvalidMessage.Error())
 				}
 
 				if errors.Is(err, ErrConnWasEndedByClient) {
@@ -174,22 +92,6 @@ func (cc *commConn) accept(ctx context.Context, wg *sync.WaitGroup) {
 			}
 		}
 	}
-}
-
-func (cc *commConn) writeError(t pbSecuregcm.Ukey2Alert_AlertType, msg string) error {
-	alertMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Alert{
-		Type:         t.Enum(),
-		ErrorMessage: proto.String(msg),
-	})
-	if err != nil {
-		return fmt.Errorf("marshal alert message: %w", err)
-	}
-
-	if err := cc.writeUKEYMessage(pbSecuregcm.Ukey2Message_ALERT, alertMsg); err != nil {
-		return fmt.Errorf("write UKEY message: %w", err)
-	}
-
-	return nil
 }
 
 func (cc *commConn) processKeepAliveMessage(msg []byte) error {
@@ -209,6 +111,38 @@ func (cc *commConn) processKeepAliveMessage(msg []byte) error {
 		},
 	}); err != nil {
 		return fmt.Errorf("write offline frame: %w", err)
+	}
+
+	return nil
+}
+
+func (cc *commConn) processUKEYAlert(msg []byte) error {
+	var ukeyMessage pbSecuregcm.Ukey2Message
+	if err := proto.Unmarshal(msg, &ukeyMessage); err != nil {
+		return fmt.Errorf("unmarshal ukey message: %w", err)
+	}
+
+	var alert pbSecuregcm.Ukey2Alert
+	if err := proto.Unmarshal(ukeyMessage.GetMessageData(), &alert); err != nil {
+		return fmt.Errorf("unmarshal alert: %w", err)
+	}
+
+	fmt.Printf("ERR: got an alert (%s)\n", pbSecuregcm.Ukey2Alert_AlertType_name[int32(alert.GetType())])
+	fmt.Printf("ERR: alert message (%s)\n", alert.GetErrorMessage())
+	return nil
+}
+
+func (cc *commConn) writeError(t pbSecuregcm.Ukey2Alert_AlertType, msg string) error {
+	alertMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Alert{
+		Type:         t.Enum(),
+		ErrorMessage: proto.String(msg),
+	})
+	if err != nil {
+		return fmt.Errorf("marshal alert message: %w", err)
+	}
+
+	if err := cc.writeUKEYMessage(pbSecuregcm.Ukey2Message_ALERT, alertMsg); err != nil {
+		return fmt.Errorf("write UKEY message: %w", err)
 	}
 
 	return nil
@@ -259,20 +193,6 @@ func (cc *commConn) writeMessage(data []byte) error {
 	if _, err := cc.conn.Write(msgWithPrefix); err != nil {
 		return fmt.Errorf("send message to client: %w", err)
 	}
-
-	return nil
-}
-
-func (cs commServer) Stop() error {
-	if cs.sock == nil {
-		return nil
-	}
-
-	cs.stopCh <- struct{}{}
-	if err := cs.sock.Close(); err != nil {
-		return fmt.Errorf("close socket: %w", err)
-	}
-	cs.wg.Wait()
 
 	return nil
 }

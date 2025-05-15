@@ -1,0 +1,204 @@
+package crypt
+
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/ecdh"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/hkdf"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"math/big"
+
+	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
+	pbSecureMessage "github.com/ACLzz/go-qshare/protobuf/gen/securemessage"
+	"google.golang.org/protobuf/proto"
+)
+
+/*
+	receiver -- site of communication which runs the code
+	sender -- opposite site of communication
+*/
+
+const (
+	nextLabel = "UKEY2 v1 next"
+)
+
+var (
+	d2dSalt = must(hex.DecodeString("82AA55A0D397F88346CA1CEE8D3909B95F13FA7DEB1D4AB38376B8256DA85510"))
+	encSalt = must(hex.DecodeString("BF9D2A53C63616D75DB0A7165B91C1EF73E537F2427405FA23610A4BE657642E"))
+)
+
+type Cipher struct {
+	isServer bool
+
+	receiverInitMsg    []byte
+	receiverPrivateKey *ecdh.PrivateKey
+	senderInitMsg      []byte
+	senderPublicKey    *ecdh.PublicKey
+
+	senderHMACKey []byte
+	decryptBlock  cipher.Block
+	encryptBlock  cipher.Block
+}
+
+func NewCipher(isServer bool) Cipher {
+	return Cipher{
+		isServer: isServer,
+	}
+}
+
+func (c *Cipher) AddSenderInitMessage(msg []byte) error {
+	if len(msg) == 0 {
+		return ErrInvalidSenderInitMessage
+	}
+
+	c.senderInitMsg = msg
+	return nil
+}
+
+func (c *Cipher) AddReceiverInitMessage(msg []byte) error {
+	if len(msg) == 0 {
+		return ErrInvalidReceiverInitMessage
+	}
+
+	ukeyMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
+		MessageType: pbSecuregcm.Ukey2Message_SERVER_INIT.Enum(),
+		MessageData: msg,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal message: %w", err)
+	}
+
+	c.receiverInitMsg = ukeyMsg
+	return nil
+}
+
+func (c *Cipher) AddReceiverPrivateKey(key *ecdsa.PrivateKey) (err error) {
+	if key == nil {
+		return ErrInvalidReceiverPrivateKey
+	}
+
+	c.receiverPrivateKey, err = key.ECDH()
+	if err != nil {
+		return fmt.Errorf("convert ecdsa private key to ecdh: %w", err)
+	}
+	return nil
+}
+
+func (c *Cipher) AddSenderPublicKey(key *pbSecureMessage.EcP256PublicKey) error {
+	x := key.GetX()
+	y := key.GetY()
+	if len(x) > 32 {
+		x = x[len(x)-32:]
+	}
+	if len(y) > 32 {
+		y = y[len(y)-32:]
+	}
+
+	var err error
+	c.senderPublicKey, err = (&ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     big.NewInt(0).SetBytes(x),
+		Y:     big.NewInt(0).SetBytes(y),
+	}).ECDH()
+	if err != nil {
+		return fmt.Errorf("craft ecdh public key: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Cipher) validate() bool {
+	return len(c.senderInitMsg) > 0 && len(c.receiverInitMsg) > 0 && c.receiverPrivateKey != nil && c.senderPublicKey != nil
+}
+
+func (c *Cipher) Setup() error {
+	if !c.validate() {
+		return ErrInvalidCipher
+	}
+
+	secret, err := c.receiverPrivateKey.ECDH(c.senderPublicKey)
+	if err != nil {
+		return fmt.Errorf("get dh secret: %w", err)
+	}
+	secretHash := sha256.Sum256(secret)
+
+	ukeyInfo := make([]byte, len(c.receiverInitMsg)+len(c.senderInitMsg))
+	copy(ukeyInfo, c.senderInitMsg)
+	copy(ukeyInfo[len(c.senderInitMsg):], c.receiverInitMsg)
+
+	next, err := hkdfExtractExpand(secretHash[:], []byte(nextLabel), string(ukeyInfo))
+	if err != nil {
+		return fmt.Errorf("generate next secret: %w", err)
+	}
+
+	senderInfo, receiverInfo := mapSenderReceiverInfo(c.isServer)
+	d2dSenderKey, err := hkdfExtractExpand(next, d2dSalt, senderInfo)
+	if err != nil {
+		return fmt.Errorf("derive d2d sender key: %w", err)
+	}
+
+	d2dReceiverKey, err := hkdfExtractExpand(next, d2dSalt, receiverInfo)
+	if err != nil {
+		return fmt.Errorf("derive d2d receiver key: %w", err)
+	}
+
+	c.senderHMACKey, err = hkdfExtractExpand(d2dSenderKey, encSalt, "SIG:1")
+	if err != nil {
+		return fmt.Errorf("derive sender hmac key: %w", err)
+	}
+
+	decryptKey, err := hkdfExtractExpand(d2dSenderKey, encSalt, "ENC:2")
+	if err != nil {
+		return fmt.Errorf("derive decrypt key: %w", err)
+	}
+
+	encryptKey, err := hkdfExtractExpand(d2dReceiverKey, encSalt, "ENC:2")
+	if err != nil {
+		return fmt.Errorf("derive encrypt key: %w", err)
+	}
+
+	c.decryptBlock, err = aes.NewCipher(decryptKey)
+	if err != nil {
+		return fmt.Errorf("create decrypt block: %w", err)
+	}
+
+	c.encryptBlock, err = aes.NewCipher(encryptKey)
+	if err != nil {
+		return fmt.Errorf("create encrypt block: %w", err)
+	}
+
+	return nil
+}
+
+func mapSenderReceiverInfo(isServer bool) (string, string) {
+	if isServer {
+		return "client", "server"
+	}
+	return "server", "client"
+}
+
+func hkdfExtractExpand(key, salt []byte, info string) ([]byte, error) {
+	extKey, err := hkdf.Extract(sha256.New, key, salt)
+	if err != nil {
+		return nil, fmt.Errorf("extract hkdf key: %w", err)
+	}
+
+	exp, err := hkdf.Expand(sha256.New, extKey, info, 32)
+	if err != nil {
+		return nil, fmt.Errorf("expand hkdf key: %w", err)
+	}
+
+	return exp, nil
+}
+
+func must[T any](retValue T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+
+	return retValue
+}

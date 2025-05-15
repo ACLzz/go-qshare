@@ -6,6 +6,7 @@ PROTO = protoc \
 dep:
 	go mod tidy
 
+# TODO: make it work from docker run
 proto:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
@@ -21,8 +22,13 @@ proto:
 	mkdir -p ./protobuf/gen/sharing
 	$(PROTO) --go_out=protobuf/gen/sharing ./protobuf/wire_format.proto
 
+# TODO: make it work from docker run
+mock:
+	go install go.uber.org/mock/mockgen@latest
+
 clean:
 	rm -rfv ./protobuf/gen
+	rm -rvf ./mocks
 
 test:
 	go test $(FLAGS) ./...

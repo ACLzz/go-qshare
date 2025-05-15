@@ -1,5 +1,6 @@
 __debug*
 .vscode
 protobuf/*
+mocks
 
 !protobuf/*.proto

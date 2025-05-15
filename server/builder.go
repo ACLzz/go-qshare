@@ -8,6 +8,7 @@ import (
 	"os"
 
 	qshare "github.com/ACLzz/go-qshare"
+	"github.com/ACLzz/go-qshare/server/comm"
 
 	"tinygo.org/x/bluetooth"
 )
@@ -77,7 +78,7 @@ func (b *serverBuilder) Build() (*Server, error) {
 		return nil, fmt.Errorf("create ble advertisement: %w", err)
 	}
 
-	cs, err := newCommServer(b.port)
+	cs, err := comm.NewServer(b.port)
 	if err != nil {
 		return nil, fmt.Errorf("create communication server: %w", err)
 	}
