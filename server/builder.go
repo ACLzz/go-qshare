@@ -8,6 +8,8 @@ import (
 	"os"
 
 	qshare "github.com/ACLzz/go-qshare"
+	internalLog "github.com/ACLzz/go-qshare/internal/log"
+	"github.com/ACLzz/go-qshare/log"
 	"github.com/ACLzz/go-qshare/server/comm"
 
 	"tinygo.org/x/bluetooth"
@@ -24,12 +26,14 @@ type serverBuilder struct {
 	endpoint []byte
 	adapter  *bluetooth.Adapter
 	device   qshare.DeviceType
+	logger   log.Logger
 
 	isHostnameSet         bool
 	isPortSet             bool
 	isEndpointSet         bool
 	isBluetoothAdapterSet bool
 	isDeviceTypeSet       bool
+	isLoggerSet           bool
 }
 
 func NewServerBuilder(clk qshare.Clock) *serverBuilder {
@@ -68,6 +72,12 @@ func (b *serverBuilder) WithDeviceType(device qshare.DeviceType) *serverBuilder 
 	return b
 }
 
+func (b *serverBuilder) WithLogger(logger log.Logger) *serverBuilder {
+	b.logger = logger
+	b.isLoggerSet = true
+	return b
+}
+
 func (b *serverBuilder) Build() (*Server, error) {
 	if err := b.propagateDefaultValues(); err != nil {
 		return nil, fmt.Errorf("propagate default values: %w", err)
@@ -78,7 +88,7 @@ func (b *serverBuilder) Build() (*Server, error) {
 		return nil, fmt.Errorf("create ble advertisement: %w", err)
 	}
 
-	cs, err := comm.NewServer(b.port)
+	cs, err := comm.NewServer(b.port, b.logger)
 	if err != nil {
 		return nil, fmt.Errorf("create communication server: %w", err)
 	}
@@ -124,6 +134,7 @@ func (b *serverBuilder) propagateDefaultValues() error {
 		b.propBluAdapter,
 		b.propEndpoint,
 		b.propDeviceType,
+		b.propLogger,
 	}
 
 	var err error
@@ -211,6 +222,15 @@ func (b *serverBuilder) propDeviceType() error {
 	}
 
 	b.device = qshare.UnknownDevice
+	return nil
+}
+
+func (b *serverBuilder) propLogger() error {
+	if b.isLoggerSet {
+		return nil
+	}
+
+	b.logger = internalLog.NewLogger()
 	return nil
 }
 

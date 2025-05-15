@@ -67,7 +67,7 @@ func (cc *commConn) route(msg []byte) (err error) {
 	} else if cc.phase == transferPhase {
 		switch cc.nextExpectedMessage {
 		case introduction:
-			fmt.Println("introduction phase achived")
+			cc.log.Debug("introduction phase achived") // TODO: remove
 		case unknown_message_type:
 			err = ErrInternalError
 		}

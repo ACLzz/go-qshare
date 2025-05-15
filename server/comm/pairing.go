@@ -23,22 +23,14 @@ func (cc *commConn) processPairedKeyEncryption(msg *pbSharing.PairedKeyEncryptio
 		return fmt.Errorf("generate signed data: %w", err)
 	}
 
-	data, err := proto.Marshal(&pbSharing.Frame{
-		Version: pbSharing.Frame_V1.Enum(),
-		V1: &pbSharing.V1Frame{
-			Type: pbSharing.V1Frame_PAIRED_KEY_ENCRYPTION.Enum(),
-			PairedKeyEncryption: &pbSharing.PairedKeyEncryptionFrame{
-				SecretIdHash: secretIDHash,
-				SignedData:   signedData,
-			},
+	if err := cc.writeSecureFrame(&pbSharing.V1Frame{
+		Type: pbSharing.V1Frame_PAIRED_KEY_ENCRYPTION.Enum(),
+		PairedKeyEncryption: &pbSharing.PairedKeyEncryptionFrame{
+			SecretIdHash: secretIDHash,
+			SignedData:   signedData,
 		},
-	})
-	if err != nil {
-		return fmt.Errorf("marshal paired key encryption frame: %w", err)
-	}
-
-	if err := cc.writeMessage(data); err != nil {
-		return fmt.Errorf("write message: %w", err)
+	}); err != nil {
+		return fmt.Errorf("write secure frame: %w", err)
 	}
 
 	return nil
