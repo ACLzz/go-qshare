@@ -7,6 +7,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hkdf"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -39,9 +40,10 @@ type Cipher struct {
 	senderInitMsg      []byte
 	senderPublicKey    *ecdh.PublicKey
 
-	senderHMACKey []byte
-	decryptBlock  cipher.Block
-	encryptBlock  cipher.Block
+	senderHMACKey   []byte
+	receiverHMACKey []byte
+	decryptBlock    cipher.Block
+	encryptBlock    cipher.Block
 }
 
 func NewCipher(isServer bool) Cipher {
@@ -50,7 +52,7 @@ func NewCipher(isServer bool) Cipher {
 	}
 }
 
-func (c *Cipher) AddSenderInitMessage(msg []byte) error {
+func (c *Cipher) SetSenderInitMessage(msg []byte) error {
 	if len(msg) == 0 {
 		return ErrInvalidSenderInitMessage
 	}
@@ -59,7 +61,7 @@ func (c *Cipher) AddSenderInitMessage(msg []byte) error {
 	return nil
 }
 
-func (c *Cipher) AddReceiverInitMessage(msg []byte) error {
+func (c *Cipher) SetReceiverInitMessage(msg []byte) error {
 	if len(msg) == 0 {
 		return ErrInvalidReceiverInitMessage
 	}
@@ -76,7 +78,7 @@ func (c *Cipher) AddReceiverInitMessage(msg []byte) error {
 	return nil
 }
 
-func (c *Cipher) AddReceiverPrivateKey(key *ecdsa.PrivateKey) (err error) {
+func (c *Cipher) SetReceiverPrivateKey(key *ecdsa.PrivateKey) (err error) {
 	if key == nil {
 		return ErrInvalidReceiverPrivateKey
 	}
@@ -88,7 +90,7 @@ func (c *Cipher) AddReceiverPrivateKey(key *ecdsa.PrivateKey) (err error) {
 	return nil
 }
 
-func (c *Cipher) AddSenderPublicKey(key *pbSecureMessage.EcP256PublicKey) error {
+func (c *Cipher) SetSenderPublicKey(key *pbSecureMessage.EcP256PublicKey) error {
 	x := key.GetX()
 	y := key.GetY()
 	if len(x) > 32 {
@@ -151,6 +153,11 @@ func (c *Cipher) Setup() error {
 		return fmt.Errorf("derive sender hmac key: %w", err)
 	}
 
+	c.receiverHMACKey, err = hkdfExtractExpand(d2dReceiverKey, encSalt, "SIG:1")
+	if err != nil {
+		return fmt.Errorf("derive receiver hmac key: %w", err)
+	}
+
 	decryptKey, err := hkdfExtractExpand(d2dSenderKey, encSalt, "ENC:2")
 	if err != nil {
 		return fmt.Errorf("derive decrypt key: %w", err)
@@ -172,6 +179,28 @@ func (c *Cipher) Setup() error {
 	}
 
 	return nil
+}
+
+func (c *Cipher) ValidateSignature(hb, signature []byte) error {
+	h := hmac.New(sha256.New, c.senderHMACKey)
+	if _, err := h.Write(hb); err != nil {
+		return fmt.Errorf("get hmac_sha256 from header and body: %w", err)
+	}
+
+	expectedSig := h.Sum(nil)
+	for i := range expectedSig {
+		if expectedSig[i] != signature[i] {
+			return ErrInvalidSecureMessageSignature
+		}
+	}
+
+	return nil
+}
+
+func (c *Cipher) Sign(data []byte) []byte {
+	hmacH := hmac.New(sha256.New, c.receiverHMACKey)
+	hmacH.Write(data)
+	return hmacH.Sum(nil)
 }
 
 func mapSenderReceiverInfo(isServer bool) (string, string) {

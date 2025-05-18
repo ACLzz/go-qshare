@@ -27,6 +27,9 @@ func (cc *commConn) processConnRequest(req *pbConnections.ConnectionRequestFrame
 }
 
 func (cc *commConn) processUKEYInitMessage(ukeyMessage *pbSecuregcm.Ukey2Message, rawMsg []byte) error {
+	if ukeyMessage == nil {
+		return ErrInvalidMessage
+	}
 	var err error
 
 	var msg pbSecuregcm.Ukey2ClientInit
@@ -63,19 +66,22 @@ func (cc *commConn) processUKEYInitMessage(ukeyMessage *pbSecuregcm.Ukey2Message
 	}
 
 	// add acquired data to cipher
-	if err = cc.cipher.AddReceiverPrivateKey(privateKey); err != nil {
+	if err = cc.cipher.SetReceiverPrivateKey(privateKey); err != nil {
 		return fmt.Errorf("add receiver private key: %w", err)
 	}
-	if err = cc.cipher.AddReceiverInitMessage(serverInitMsg); err != nil {
+	if err = cc.cipher.SetReceiverInitMessage(serverInitMsg); err != nil {
 		return fmt.Errorf("add receiver init message: %w", err)
 	}
-	if err = cc.cipher.AddSenderInitMessage(rawMsg); err != nil {
+	if err = cc.cipher.SetSenderInitMessage(rawMsg); err != nil {
 		return fmt.Errorf("add sender init message: %w", err)
 	}
 	return nil
 }
 
 func (cc *commConn) processUKEYFinishedMessage(ukeyMessage *pbSecuregcm.Ukey2Message) error {
+	if ukeyMessage == nil {
+		return ErrInvalidMessage
+	}
 	var msg pbSecuregcm.Ukey2ClientFinished
 	if err := proto.Unmarshal(ukeyMessage.GetMessageData(), &msg); err != nil {
 		return fmt.Errorf("unmarshal UKEY Client Finish message: %w", err)
@@ -88,7 +94,7 @@ func (cc *commConn) processUKEYFinishedMessage(ukeyMessage *pbSecuregcm.Ukey2Mes
 	}
 
 	// add acquired data to cipher
-	if err := cc.cipher.AddSenderPublicKey(genericPublicKey.GetEcP256PublicKey()); err != nil {
+	if err := cc.cipher.SetSenderPublicKey(genericPublicKey.GetEcP256PublicKey()); err != nil {
 		return fmt.Errorf("add sender public key: %w", err)
 	}
 
@@ -97,6 +103,9 @@ func (cc *commConn) processUKEYFinishedMessage(ukeyMessage *pbSecuregcm.Ukey2Mes
 
 func (cc *commConn) processConnResponse(req *pbConnections.ConnectionResponseFrame) error {
 	// validate
+	if req == nil {
+		return ErrInvalidMessage
+	}
 	if req.GetResponse() != pbConnections.ConnectionResponseFrame_ACCEPT {
 		return ErrConnWasEndedByClient
 	}
@@ -106,6 +115,7 @@ func (cc *commConn) processConnResponse(req *pbConnections.ConnectionResponseFra
 		Type: pbConnections.V1Frame_CONNECTION_RESPONSE.Enum(),
 		ConnectionResponse: &pbConnections.ConnectionResponseFrame{
 			Response: pbConnections.ConnectionResponseFrame_ACCEPT.Enum(),
+			Status:   proto.Int32(0),
 			OsInfo: &pbConnections.OsInfo{
 				Type: pbConnections.OsInfo_LINUX.Enum(), // TODO: maybe add other oses
 			},

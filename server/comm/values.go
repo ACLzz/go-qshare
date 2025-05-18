@@ -9,10 +9,10 @@ const (
 	// ...
 )
 
-type messageType uint8
+type expectedMessage uint8
 
 const (
-	unknown_message_type messageType = iota
+	unknown_message_type expectedMessage = iota
 	// init connection phase
 	conn_request
 	client_init
@@ -23,4 +23,5 @@ const (
 	paired_key_result
 	// transfer phase
 	introduction
+	accept_reject
 )

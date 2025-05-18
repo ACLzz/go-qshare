@@ -13,30 +13,33 @@ import (
 	"github.com/ACLzz/go-qshare/log"
 	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
 	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
-	pbSharing "github.com/ACLzz/go-qshare/protobuf/gen/sharing"
 	"google.golang.org/protobuf/proto"
 )
 
-const max_message_length = 32 * 1024 // 32 Kb
+const (
+	max_message_length = 32 * 1024 // 32 Kb
+	init_buf_size      = 1 * 1024  // 1 Kb
+)
 
 type commConn struct {
 	conn                net.Conn
-	log                 log.Logger
-	nextExpectedMessage messageType
-	phase               phase
 	cipher              crypt.Cipher
+	log                 log.Logger
+	nextExpectedMessage expectedMessage
+	phase               phase
+	seqNumber           int32
+	buf                 []byte
 }
 
 func newCommConn(conn net.Conn, logger log.Logger) commConn {
-	cConn := commConn{
+	return commConn{
 		conn:                conn,
+		cipher:              crypt.NewCipher(true),
 		log:                 logger,
 		nextExpectedMessage: conn_request,
 		phase:               initConnPhase,
-		cipher:              crypt.NewCipher(true),
+		buf:                 make([]byte, 0, init_buf_size),
 	}
-
-	return cConn
 }
 
 func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
@@ -47,6 +50,7 @@ func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
 	)
 	defer wg.Done()
 	cc.log.Debug("got new connection")
+	defer cc.log.Debug("connection closed")
 
 	for {
 		select {
@@ -100,110 +104,32 @@ func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
-func (cc *commConn) processKeepAliveMessage(msg []byte) error {
-	var frame pbConnections.OfflineFrame
-	if err := proto.Unmarshal(msg, &frame); err != nil {
-		return fmt.Errorf("unmarshal frame: %w", err)
-	}
-
-	if frame.GetV1().GetType() != pbConnections.V1Frame_KEEP_ALIVE {
-		return ErrInvalidMessage
-	}
-
-	if err := cc.writeOfflineFrame(&pbConnections.V1Frame{
+func (cc *commConn) processKeepAliveMessage(frame *pbConnections.OfflineFrame) {
+	keepAliveFrame := pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_KEEP_ALIVE.Enum(),
 		KeepAlive: &pbConnections.KeepAliveFrame{
 			Ack: proto.Bool(true),
 		},
-	}); err != nil {
-		return fmt.Errorf("write offline frame: %w", err)
 	}
 
-	return nil
+	var err error
+	if cc.phase > initConnPhase {
+		err = cc.encryptAndWrite(&keepAliveFrame)
+	} else {
+		err = cc.writeOfflineFrame(&keepAliveFrame)
+	}
+	if err != nil {
+		cc.log.Error("send keep alive message", err)
+	}
 }
 
-func (cc *commConn) processUKEYAlert(msg []byte) error {
-	var ukeyMessage pbSecuregcm.Ukey2Message
-	if err := proto.Unmarshal(msg, &ukeyMessage); err != nil {
-		return fmt.Errorf("unmarshal ukey message: %w", err)
-	}
-
+func (cc *commConn) processUKEYAlert(ukeyMessage *pbSecuregcm.Ukey2Message) {
 	var alert pbSecuregcm.Ukey2Alert
 	if err := proto.Unmarshal(ukeyMessage.GetMessageData(), &alert); err != nil {
-		return fmt.Errorf("unmarshal alert: %w", err)
+		return
 	}
 
 	cc.log.Warn("got an alert", "type", pbSecuregcm.Ukey2Alert_AlertType_name[int32(alert.GetType())], "message", alert.GetErrorMessage())
-	return nil
-}
-
-func (cc *commConn) writeError(t pbSecuregcm.Ukey2Alert_AlertType, msg string) error {
-	alertMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Alert{
-		Type:         t.Enum(),
-		ErrorMessage: proto.String(msg),
-	})
-	if err != nil {
-		return fmt.Errorf("marshal alert message: %w", err)
-	}
-
-	if err := cc.writeUKEYMessage(pbSecuregcm.Ukey2Message_ALERT, alertMsg); err != nil {
-		return fmt.Errorf("write UKEY message: %w", err)
-	}
-
-	return nil
-}
-
-func (cc *commConn) writeOfflineFrame(frame *pbConnections.V1Frame) error {
-	offlineFrame, err := proto.Marshal(&pbConnections.OfflineFrame{
-		Version: pbConnections.OfflineFrame_V1.Enum(),
-		V1:      frame,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal message: %w", err)
-	}
-
-	if err = cc.writeMessage(offlineFrame); err != nil {
-		return fmt.Errorf("write message: %w", err)
-	}
-
-	return nil
-}
-
-func (cc *commConn) writeUKEYMessage(t pbSecuregcm.Ukey2Message_Type, msg []byte) error {
-	ukeyMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
-		MessageType: t.Enum(),
-		MessageData: msg,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal message: %w", err)
-	}
-
-	if err = cc.writeMessage(ukeyMsg); err != nil {
-		return fmt.Errorf("write message: %w", err)
-	}
-
-	return nil
-}
-
-func (cc *commConn) writeSecureFrame(frame *pbSharing.V1Frame) error {
-	data, err := proto.Marshal(&pbSharing.Frame{
-		Version: pbSharing.Frame_V1.Enum(),
-		V1:      frame,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal secure frame: %w", err)
-	}
-
-	data, err = cc.cipher.Encrypt(data)
-	if err != nil {
-		return fmt.Errorf("encrypt data: %w", err)
-	}
-
-	if err := cc.writeMessage(data); err != nil {
-		return fmt.Errorf("write message: %w", err)
-	}
-
-	return nil
 }
 
 func (cc *commConn) writeMessage(data []byte) error {
@@ -220,5 +146,6 @@ func (cc *commConn) writeMessage(data []byte) error {
 		return fmt.Errorf("send message to client: %w", err)
 	}
 
+	cc.log.Debug("sent message to client")
 	return nil
 }

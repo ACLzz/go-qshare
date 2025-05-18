@@ -15,8 +15,5 @@ var (
 )
 
 var (
-	ErrInvalidSignatureScheme        = errors.New("got unsupported signature scheme")
-	ErrInvalidIV                     = errors.New("got invalid iv in header")
-	ErrInvalidEncryptionScheme       = errors.New("got unsupported encryption scheme")
 	ErrInvalidSecureMessageSignature = errors.New("got invalid signature for secure message")
 )

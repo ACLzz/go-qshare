@@ -8,8 +8,16 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (cc *commConn) processPairedKeyEncryption(msg *pbSharing.PairedKeyEncryptionFrame) error {
-	if msg == nil {
+func (cc *commConn) processPairedKeyEncryption() error {
+	var frame pbSharing.Frame
+	defer func() {
+		cc.buf = make([]byte, init_buf_size)
+	}()
+	if err := proto.Unmarshal(cc.buf, &frame); err != nil {
+		return fmt.Errorf("unmarshal offline frame: %w", err)
+	}
+
+	if len(frame.GetV1().GetPairedKeyEncryption().GetSignedData()) == 0 {
 		return ErrInvalidMessage
 	}
 
@@ -36,26 +44,14 @@ func (cc *commConn) processPairedKeyEncryption(msg *pbSharing.PairedKeyEncryptio
 	return nil
 }
 
-func (cc *commConn) processPairedKeyResult(msg *pbSharing.PairedKeyResultFrame) error {
-	if msg == nil {
-		return ErrInvalidMessage
-	}
-
-	data, err := proto.Marshal(&pbSharing.Frame{
-		Version: pbSharing.Frame_V1.Enum(),
-		V1: &pbSharing.V1Frame{
-			Type: pbSharing.V1Frame_PAIRED_KEY_RESULT.Enum(),
-			PairedKeyResult: &pbSharing.PairedKeyResultFrame{
-				Status: pbSharing.PairedKeyResultFrame_UNABLE.Enum(),
-			},
+func (cc *commConn) processPairedKeyResult() error {
+	if err := cc.writeSecureFrame(&pbSharing.V1Frame{
+		Type: pbSharing.V1Frame_PAIRED_KEY_RESULT.Enum(),
+		PairedKeyResult: &pbSharing.PairedKeyResultFrame{
+			Status: pbSharing.PairedKeyResultFrame_UNABLE.Enum(),
 		},
-	})
-	if err != nil {
-		return fmt.Errorf("marshal paired key encryption frame: %w", err)
-	}
-
-	if err := cc.writeMessage(data); err != nil {
-		return fmt.Errorf("write message: %w", err)
+	}); err != nil {
+		return fmt.Errorf("write key result: %w", err)
 	}
 
 	cc.phase = transferPhase

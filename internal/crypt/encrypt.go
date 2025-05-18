@@ -7,9 +7,18 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+
+	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
+	pbSecureMessage "github.com/ACLzz/go-qshare/protobuf/gen/securemessage"
+	"google.golang.org/protobuf/proto"
 )
 
-func (c *Cipher) Encrypt(msg []byte) ([]byte, error) {
+func (c *Cipher) Encrypt(d2dMsg *pbSecuregcm.DeviceToDeviceMessage) (*pbSecureMessage.HeaderAndBody, error) {
+	msg, err := proto.Marshal(d2dMsg)
+	if err != nil {
+		return nil, fmt.Errorf("marshal device to device message: %w", err)
+	}
+
 	msg = pad(msg)
 	iv := make([]byte, aes.BlockSize)
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
@@ -17,10 +26,25 @@ func (c *Cipher) Encrypt(msg []byte) ([]byte, error) {
 	}
 
 	enc := cipher.NewCBCEncrypter(c.encryptBlock, iv)
-	encMsg := make([]byte, len(msg)) // TODO: maybe reusue msg
-	enc.CryptBlocks(encMsg, msg)
+	enc.CryptBlocks(msg, msg)
 
-	return encMsg, nil
+	meta, err := proto.Marshal(&pbSecuregcm.GcmMetadata{
+		Type:    pbSecuregcm.Type_DEVICE_TO_DEVICE_MESSAGE.Enum(),
+		Version: proto.Int32(1),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal metadata: %w", err)
+	}
+
+	return &pbSecureMessage.HeaderAndBody{
+		Header: &pbSecureMessage.Header{
+			SignatureScheme:  pbSecureMessage.SigScheme_HMAC_SHA256.Enum(),
+			EncryptionScheme: pbSecureMessage.EncScheme_AES_256_CBC.Enum(),
+			Iv:               iv,
+			PublicMetadata:   meta,
+		},
+		Body: msg,
+	}, nil
 }
 
 func pad(body []byte) []byte {
