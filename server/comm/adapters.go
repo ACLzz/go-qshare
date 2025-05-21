@@ -65,6 +65,7 @@ func (cc *commConn) writeSecureFrame(frame *pbSharing.V1Frame) error {
 		return fmt.Errorf("marshal secure frame: %w", err)
 	}
 
+	messageID := rand.Int64()
 	// message
 	if err = cc.encryptAndWrite(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_PAYLOAD_TRANSFER.Enum(),
@@ -76,7 +77,7 @@ func (cc *commConn) writeSecureFrame(frame *pbSharing.V1Frame) error {
 				Body:   data,
 			},
 			PayloadHeader: &pbConnections.PayloadTransferFrame_PayloadHeader{
-				Id:          proto.Int64(rand.Int64()),
+				Id:          proto.Int64(messageID),
 				Type:        pbConnections.PayloadTransferFrame_PayloadHeader_BYTES.Enum(),
 				TotalSize:   proto.Int64(int64(len(data))),
 				IsSensitive: proto.Bool(false),
@@ -94,9 +95,10 @@ func (cc *commConn) writeSecureFrame(frame *pbSharing.V1Frame) error {
 			PayloadChunk: &pbConnections.PayloadTransferFrame_PayloadChunk{
 				Offset: proto.Int64(int64(len(data))),
 				Flags:  proto.Int32(1),
+				Body:   []byte{},
 			},
 			PayloadHeader: &pbConnections.PayloadTransferFrame_PayloadHeader{
-				Id:          proto.Int64(rand.Int64()),
+				Id:          proto.Int64(messageID),
 				Type:        pbConnections.PayloadTransferFrame_PayloadHeader_BYTES.Enum(),
 				TotalSize:   proto.Int64(int64(len(data))),
 				IsSensitive: proto.Bool(false),

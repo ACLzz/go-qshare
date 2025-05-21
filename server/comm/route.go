@@ -13,19 +13,38 @@ import (
 )
 
 func (cc *commConn) route(msg []byte) (err error) {
-	nextMessage := cc.nextExpectedMessage
-	offFrame, ukeyMessage, sharingFrame, err := cc.unmarshalInboundMessage(msg)
-	if transferStatus := cc.processOngoingTransfer(offFrame); transferStatus != nil {
-		if transferStatus == ErrTransferNotFinishedYet {
-			return nil
+	// all messages after init connection phase are encrypted
+	if cc.phase > initConnPhase {
+		msg, err = cc.decryptMessage(msg)
+		if err != nil {
+			return err
 		}
-		if transferStatus != ErrNotTransferMessage {
-			err = transferStatus
+	}
+
+	if status, err := cc.processOngoingTransfer(msg); status > transfer_not_started {
+		switch status {
+		case transfer_in_progress:
+			return nil
+		case transfer_finished:
+			defer cc.clearBuf()
+		case transfer_error:
+			if err != nil {
+				return fmt.Errorf("process ongoing transfer: %w", err)
+			}
+		}
+	}
+
+	nextMessage := cc.nextExpectedMessage
+	offFrame, ukeyMessage, sharingFrame, unmarshalErr := cc.unmarshalInboundMessage(msg)
+	if unmarshalErr != nil {
+		if err == nil {
+			err = fmt.Errorf("unmarshal inbound message: %w", unmarshalErr)
 		}
 	}
 
 	if err == nil {
-		if cc.phase == initConnPhase {
+		switch cc.phase {
+		case initConnPhase:
 			switch cc.nextExpectedMessage {
 			// connection request
 			case conn_request:
@@ -44,19 +63,19 @@ func (cc *commConn) route(msg []byte) (err error) {
 				err = cc.processConnResponse(offFrame.GetV1().GetConnectionResponse())
 				nextMessage = paired_key_encryption
 			}
-		} else if cc.phase == pairingPhase {
+		case pairingPhase:
 			switch cc.nextExpectedMessage {
 			// paired key encryption
 			case paired_key_encryption:
-				err = cc.processPairedKeyEncryption()
+				err = cc.processPairedKeyEncryption(sharingFrame.GetV1().GetPairedKeyEncryption())
 				nextMessage = paired_key_result
 				cc.log.Debug("written paired key encryption")
 			// paired key result
 			case paired_key_result:
-				err = cc.processPairedKeyResult()
+				err = cc.processPairedKeyResult(sharingFrame.GetV1().GetPairedKeyResult())
 				nextMessage = introduction
 			}
-		} else if cc.phase == transferPhase {
+		case transferPhase:
 			switch cc.nextExpectedMessage {
 			// transfer introduction
 			case introduction:
@@ -68,7 +87,6 @@ func (cc *commConn) route(msg []byte) (err error) {
 			}
 		}
 	}
-	offFrame.GetV1().GetPairedKeyEncryption()
 
 	if err != nil {
 		// check if message was actually service message
@@ -93,40 +111,23 @@ func (cc *commConn) unmarshalInboundMessage(msg []byte) (*pbConnections.OfflineF
 		err          error
 	)
 
-	// all messages after init connection phase are encrypted
-	if cc.phase > initConnPhase {
-		msg, err = cc.decryptMessage(msg)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	}
-
 	// understand which message now must be handeled and unmarshal to correct type
 	switch cc.nextExpectedMessage {
-	case conn_request, conn_response, paired_key_encryption:
-		if err := proto.Unmarshal(msg, &offFrame); err != nil {
-			return nil, nil, nil, fmt.Errorf("decrypt message: %w", err)
-		}
-		if cc.nextExpectedMessage == paired_key_encryption {
-			var a pbSecuregcm.Ukey2Message
-			var b pbSecuregcm.Ukey2Alert
-			proto.Unmarshal(offFrame.GetV1().GetPayloadTransfer().GetPayloadChunk().GetBody(), &a)
-			proto.Unmarshal(a.GetMessageData(), &b)
-			// proto.Unmarshal(a.GetPayloadChunk().GetBody(), &offFrame)
-			_ = offFrame
+	case conn_request, conn_response:
+		if err = proto.Unmarshal(msg, &offFrame); err != nil {
+			return nil, nil, nil, fmt.Errorf("unmarshal offline frame: %w", err)
 		}
 		return &offFrame, nil, nil, nil
 	case client_init, client_finish:
-		if err := proto.Unmarshal(msg, &ukeyMessage); err != nil {
+		if err = proto.Unmarshal(msg, &ukeyMessage); err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshal ukey message: %w", err)
 		}
 		return nil, &ukeyMessage, nil, nil
-	case paired_key_result, introduction:
-		proto.Unmarshal(msg, &offFrame)
-		proto.Unmarshal(msg, &ukeyMessage)
-		if err := proto.Unmarshal(msg, &sharingFrame); err != nil {
-			return nil, nil, &sharingFrame, nil
+	case paired_key_result, paired_key_encryption, introduction:
+		if err = proto.Unmarshal(cc.buf, &sharingFrame); err != nil {
+			return nil, nil, nil, fmt.Errorf("unmarshal sharing frame: %w", err)
 		}
+		return nil, nil, &sharingFrame, nil
 	case accept_reject:
 		return nil, nil, nil, nil
 	}
@@ -134,37 +135,38 @@ func (cc *commConn) unmarshalInboundMessage(msg []byte) (*pbConnections.OfflineF
 	return nil, nil, nil, ErrInternalError
 }
 
-func (cc *commConn) processOngoingTransfer(frame *pbConnections.OfflineFrame) error {
-	if frame == nil || frame.GetV1().GetPayloadTransfer() == nil {
-		return ErrNotTransferMessage
+func (cc *commConn) processOngoingTransfer(msg []byte) (transferProgress, error) {
+	var frame pbConnections.OfflineFrame
+	if err := proto.Unmarshal(msg, &frame); err != nil {
+		return transfer_not_started, nil
 	}
 
-	chunk := frame.GetV1().GetPayloadTransfer().GetPayloadChunk()
+	payloadTransfer := frame.GetV1().GetPayloadTransfer()
+	if payloadTransfer == nil {
+		return transfer_not_started, nil
+	}
+
+	chunk := payloadTransfer.GetPayloadChunk()
+	if chunk.GetOffset() != int64(len(cc.buf)) {
+		return transfer_error, ErrInvalidMessage
+	}
+
 	cc.buf = append(cc.buf, chunk.GetBody()...)
 	if chunk.GetFlags()&1 == 1 {
-		if len(cc.buf) != int(frame.GetV1().GetPayloadTransfer().GetPayloadHeader().GetTotalSize()) {
-			return ErrInvalidMessage
+		if payloadTransfer.GetPayloadHeader().GetTotalSize() != int64(len(cc.buf)) {
+			return transfer_error, ErrInvalidMessage
 		}
-		return nil
+		return transfer_finished, nil
 	}
 
-	return ErrTransferNotFinishedYet
+	return transfer_in_progress, nil
 }
 
 func (cc *commConn) processServiceMessage(msg []byte) error {
 	var (
 		offFrame    pbConnections.OfflineFrame
 		ukeyMessage pbSecuregcm.Ukey2Message
-		err         error
 	)
-
-	// all messages after init connection phase are encrypted
-	if cc.phase > initConnPhase {
-		msg, err = cc.decryptMessage(msg)
-		if err != nil {
-			return fmt.Errorf("decrypt message: %w", err)
-		}
-	}
 
 	// don't care about errors here, because we don't know actual message type
 	_ = proto.Unmarshal(msg, &offFrame)

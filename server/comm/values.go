@@ -25,3 +25,12 @@ const (
 	introduction
 	accept_reject
 )
+
+type transferProgress uint8
+
+const (
+	transfer_not_started transferProgress = iota
+	transfer_in_progress
+	transfer_finished
+	transfer_error
+)

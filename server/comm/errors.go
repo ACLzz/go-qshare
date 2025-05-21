@@ -15,8 +15,3 @@ var (
 	ErrInvalidIV               = errors.New("got invalid iv in header")
 	ErrInvalidEncryptionScheme = errors.New("got unsupported encryption scheme")
 )
-
-var (
-	ErrTransferNotFinishedYet = errors.New("transfer was not finished yet")
-	ErrNotTransferMessage     = errors.New("not transfer message")
-)

@@ -5,5 +5,8 @@ import (
 )
 
 func (cc *commConn) processIntroduction(msg *pbSharing.IntroductionFrame) error {
+	if len(msg.GetTextMetadata()) == 0 {
+		return ErrInvalidMessage
+	}
 	return nil
 }

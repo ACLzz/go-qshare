@@ -128,8 +128,13 @@ func (cc *commConn) processUKEYAlert(ukeyMessage *pbSecuregcm.Ukey2Message) {
 	if err := proto.Unmarshal(ukeyMessage.GetMessageData(), &alert); err != nil {
 		return
 	}
+	
+	alertType, ok := pbSecuregcm.Ukey2Alert_AlertType_name[int32(alert.GetType())]
+	if !ok {
+		return
+	}
 
-	cc.log.Warn("got an alert", "type", pbSecuregcm.Ukey2Alert_AlertType_name[int32(alert.GetType())], "message", alert.GetErrorMessage())
+	cc.log.Warn("got an alert", "type", alertType, "message", alert.GetErrorMessage())
 }
 
 func (cc *commConn) writeMessage(data []byte) error {
@@ -148,4 +153,8 @@ func (cc *commConn) writeMessage(data []byte) error {
 
 	cc.log.Debug("sent message to client")
 	return nil
+}
+
+func (cc *commConn) clearBuf() {
+	cc.buf = make([]byte, 0, init_buf_size)
 }
