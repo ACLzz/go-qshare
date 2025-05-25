@@ -77,8 +77,8 @@ func TestCipher_Server_Setup(t *testing.T) {
 			d2dEncryptBlock, err := aes.NewCipher(tt.expected.encryptKey)
 			require.NoError(t, err)
 
-			assert.Equal(t, hmac.New(sha256.New, tt.expected.serverHMACKey), c.receiverHMAC)
-			assert.Equal(t, hmac.New(sha256.New, tt.expected.clientHMACKey), c.senderHMAC)
+			assert.Equal(t, hmac.New(sha256.New, tt.expected.serverHMACKey), c.receiverHMACKey)
+			assert.Equal(t, hmac.New(sha256.New, tt.expected.clientHMACKey), c.senderHMACKey)
 			assert.EqualValues(t, d2dDecryptBlock, c.decryptBlock)
 			assert.EqualValues(t, d2dEncryptBlock, c.encryptBlock)
 		})

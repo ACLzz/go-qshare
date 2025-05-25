@@ -100,6 +100,13 @@ func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
 				cc.log.Error("process message", err)
 				continue
 			}
+
+			if cc.phase == disconnectPhase {
+				if err = cc.disconnect(); err != nil {
+					cc.log.Error("error while disconnecting", err)
+				}
+				return
+			}
 		}
 	}
 }
@@ -128,13 +135,22 @@ func (cc *commConn) processUKEYAlert(ukeyMessage *pbSecuregcm.Ukey2Message) {
 	if err := proto.Unmarshal(ukeyMessage.GetMessageData(), &alert); err != nil {
 		return
 	}
-	
+
 	alertType, ok := pbSecuregcm.Ukey2Alert_AlertType_name[int32(alert.GetType())]
 	if !ok {
 		return
 	}
 
 	cc.log.Warn("got an alert", "type", alertType, "message", alert.GetErrorMessage())
+}
+
+func (cc *commConn) disconnect() error {
+	return cc.writeOfflineFrame(&pbConnections.V1Frame{
+		Type: pbConnections.V1Frame_DISCONNECTION.Enum(),
+		Disconnection: &pbConnections.DisconnectionFrame{
+			AckSafeToDisconnect: proto.Bool(true),
+		},
+	})
 }
 
 func (cc *commConn) writeMessage(data []byte) error {

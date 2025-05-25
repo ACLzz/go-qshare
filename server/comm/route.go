@@ -83,7 +83,14 @@ func (cc *commConn) route(msg []byte) (err error) {
 				nextMessage = accept_reject
 			// accept or reject response
 			case accept_reject:
-				cc.log.Warn("accept reject achived")
+				err = cc.processTransferRequest(sharingFrame.GetV1().GetConnectionResponse())
+				nextMessage = transfer_start
+			// transfer start
+			case transfer_start:
+				nextMessage = transfer_complete
+			// transfer complete
+			case transfer_complete:
+				err = cc.processTransferComplete()
 			}
 		}
 	}
@@ -123,12 +130,12 @@ func (cc *commConn) unmarshalInboundMessage(msg []byte) (*pbConnections.OfflineF
 			return nil, nil, nil, fmt.Errorf("unmarshal ukey message: %w", err)
 		}
 		return nil, &ukeyMessage, nil, nil
-	case paired_key_result, paired_key_encryption, introduction:
+	case paired_key_result, paired_key_encryption, introduction, accept_reject:
 		if err = proto.Unmarshal(cc.buf, &sharingFrame); err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshal sharing frame: %w", err)
 		}
 		return nil, nil, &sharingFrame, nil
-	case accept_reject:
+	case transfer_start, transfer_complete:
 		return nil, nil, nil, nil
 	}
 

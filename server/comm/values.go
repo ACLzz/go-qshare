@@ -6,7 +6,7 @@ const (
 	initConnPhase phase = iota
 	pairingPhase
 	transferPhase
-	// ...
+	disconnectPhase
 )
 
 type expectedMessage uint8
@@ -24,6 +24,8 @@ const (
 	// transfer phase
 	introduction
 	accept_reject
+	transfer_start
+	transfer_complete
 )
 
 type transferProgress uint8
