@@ -78,7 +78,10 @@ func (b *serverBuilder) WithLogger(logger log.Logger) *serverBuilder {
 	return b
 }
 
-func (b *serverBuilder) Build() (*Server, error) {
+func (b *serverBuilder) Build(
+	textCallback qshare.TextCallback,
+	fileCallback qshare.FileCallback,
+) (*Server, error) {
 	if err := b.propagateDefaultValues(); err != nil {
 		return nil, fmt.Errorf("propagate default values: %w", err)
 	}
@@ -88,7 +91,7 @@ func (b *serverBuilder) Build() (*Server, error) {
 		return nil, fmt.Errorf("create ble advertisement: %w", err)
 	}
 
-	cs, err := comm.NewServer(b.port, b.logger)
+	cs, err := comm.NewServer(b.port, b.logger, textCallback, fileCallback)
 	if err != nil {
 		return nil, fmt.Errorf("create communication server: %w", err)
 	}

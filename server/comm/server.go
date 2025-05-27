@@ -6,28 +6,37 @@ import (
 	"net"
 	"sync"
 
+	qshare "github.com/ACLzz/go-qshare"
 	"github.com/ACLzz/go-qshare/log"
 )
 
 type Server struct {
-	sock   net.Listener
-	wg     *sync.WaitGroup
-	log    log.Logger
-	stopCh chan struct{}
-	// TODO: use kind of logger instead of prints
+	sock         net.Listener
+	wg           *sync.WaitGroup
+	log          log.Logger
+	textCallback qshare.TextCallback
+	fileCallback qshare.FileCallback
+	stopCh       chan struct{}
 }
 
-func NewServer(port int, log log.Logger) (Server, error) {
+func NewServer(
+	port int,
+	log log.Logger,
+	textCallback qshare.TextCallback,
+	fileCallback qshare.FileCallback,
+) (Server, error) {
 	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return Server{}, fmt.Errorf("start socket: %w", err)
 	}
 
 	return Server{
-		sock:   sock,
-		wg:     &sync.WaitGroup{},
-		log:    log,
-		stopCh: make(chan struct{}, 1),
+		sock:         sock,
+		wg:           &sync.WaitGroup{},
+		log:          log,
+		textCallback: textCallback,
+		fileCallback: fileCallback,
+		stopCh:       make(chan struct{}, 1),
 	}, nil
 }
 
@@ -55,7 +64,7 @@ func (s Server) Listen() {
 		}
 
 		s.wg.Add(1)
-		c := newCommConn(conn, s.log)
+		c := newCommConn(conn, s.log, s.textCallback, s.fileCallback)
 		go c.Accept(ctx, s.wg) // TODO: maybe limit amount of gorutines here
 	}
 }

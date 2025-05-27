@@ -49,6 +49,6 @@ func (cc *commConn) processPairedKeyResult(frame *pbSharing.PairedKeyResultFrame
 		return fmt.Errorf("write paired key result: %w", err)
 	}
 
-	cc.phase = transferPhase
+	cc.phase = transfer_phase
 	return nil
 }

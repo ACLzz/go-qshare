@@ -6,27 +6,52 @@ import (
 
 	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
 	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
-	pbSecureMessage "github.com/ACLzz/go-qshare/protobuf/gen/securemessage"
 	pbSharing "github.com/ACLzz/go-qshare/protobuf/gen/sharing"
 
 	"google.golang.org/protobuf/proto"
 )
 
+var mysteryFrame = []byte{
+	0x08, 0x01,
+	0x12, 0x0b,
+	0x08, 0x07,
+	0x3a, 0x07,
+	0x0d, 0x00, 0x00, 0x00, 0x00,
+	0x10, 0x01,
+}
+
 func (cc *commConn) route(msg []byte) (err error) {
 	// all messages after init connection phase are encrypted
-	if cc.phase > initConnPhase {
+	if cc.phase > init_phase {
 		msg, err = cc.decryptMessage(msg)
 		if err != nil {
 			return err
 		}
 	}
 
+	// process transfer if it is running
 	if status, err := cc.processOngoingTransfer(msg); status > transfer_not_started {
 		switch status {
 		case transfer_in_progress:
 			return nil
 		case transfer_finished:
-			defer cc.clearBuf()
+			if len(cc.buf) > 0 {
+				defer cc.clearBuf()
+
+				// TODO: FIXME (workaround)
+				if len(cc.buf) == len(mysteryFrame) {
+					isTheSame := true
+					for i := range mysteryFrame {
+						if mysteryFrame[i] != cc.buf[i] {
+							isTheSame = false
+						}
+					}
+
+					if isTheSame {
+						return nil
+					}
+				}
+			}
 		case transfer_error:
 			if err != nil {
 				return fmt.Errorf("process ongoing transfer: %w", err)
@@ -44,7 +69,7 @@ func (cc *commConn) route(msg []byte) (err error) {
 
 	if err == nil {
 		switch cc.phase {
-		case initConnPhase:
+		case init_phase:
 			switch cc.nextExpectedMessage {
 			// connection request
 			case conn_request:
@@ -63,19 +88,18 @@ func (cc *commConn) route(msg []byte) (err error) {
 				err = cc.processConnResponse(offFrame.GetV1().GetConnectionResponse())
 				nextMessage = paired_key_encryption
 			}
-		case pairingPhase:
+		case pairing_phase:
 			switch cc.nextExpectedMessage {
 			// paired key encryption
 			case paired_key_encryption:
 				err = cc.processPairedKeyEncryption(sharingFrame.GetV1().GetPairedKeyEncryption())
 				nextMessage = paired_key_result
-				cc.log.Debug("written paired key encryption")
 			// paired key result
 			case paired_key_result:
 				err = cc.processPairedKeyResult(sharingFrame.GetV1().GetPairedKeyResult())
 				nextMessage = introduction
 			}
-		case transferPhase:
+		case transfer_phase:
 			switch cc.nextExpectedMessage {
 			// transfer introduction
 			case introduction:
@@ -84,9 +108,6 @@ func (cc *commConn) route(msg []byte) (err error) {
 			// accept or reject response
 			case accept_reject:
 				err = cc.processTransferRequest(sharingFrame.GetV1().GetConnectionResponse())
-				nextMessage = transfer_start
-			// transfer start
-			case transfer_start:
 				nextMessage = transfer_complete
 			// transfer complete
 			case transfer_complete:
@@ -135,108 +156,9 @@ func (cc *commConn) unmarshalInboundMessage(msg []byte) (*pbConnections.OfflineF
 			return nil, nil, nil, fmt.Errorf("unmarshal sharing frame: %w", err)
 		}
 		return nil, nil, &sharingFrame, nil
-	case transfer_start, transfer_complete:
+	case transfer_complete:
 		return nil, nil, nil, nil
 	}
 
 	return nil, nil, nil, ErrInternalError
-}
-
-func (cc *commConn) processOngoingTransfer(msg []byte) (transferProgress, error) {
-	var frame pbConnections.OfflineFrame
-	if err := proto.Unmarshal(msg, &frame); err != nil {
-		return transfer_not_started, nil
-	}
-
-	payloadTransfer := frame.GetV1().GetPayloadTransfer()
-	if payloadTransfer == nil {
-		return transfer_not_started, nil
-	}
-
-	chunk := payloadTransfer.GetPayloadChunk()
-	if chunk.GetOffset() != int64(len(cc.buf)) {
-		return transfer_error, ErrInvalidMessage
-	}
-
-	cc.buf = append(cc.buf, chunk.GetBody()...)
-	if chunk.GetFlags()&1 == 1 {
-		if payloadTransfer.GetPayloadHeader().GetTotalSize() != int64(len(cc.buf)) {
-			return transfer_error, ErrInvalidMessage
-		}
-		return transfer_finished, nil
-	}
-
-	return transfer_in_progress, nil
-}
-
-func (cc *commConn) processServiceMessage(msg []byte) error {
-	var (
-		offFrame    pbConnections.OfflineFrame
-		ukeyMessage pbSecuregcm.Ukey2Message
-	)
-
-	// don't care about errors here, because we don't know actual message type
-	_ = proto.Unmarshal(msg, &offFrame)
-	_ = proto.Unmarshal(msg, &ukeyMessage)
-
-	isKeepAlive := offFrame.GetV1().GetType() == pbConnections.V1Frame_KEEP_ALIVE
-	isDisconnection := offFrame.GetV1().GetType() == pbConnections.V1Frame_DISCONNECTION
-	isUKEYAlert := ukeyMessage.GetMessageType() == pbSecuregcm.Ukey2Message_ALERT
-	if isKeepAlive {
-		cc.processKeepAliveMessage(&offFrame)
-	}
-	if isUKEYAlert {
-		cc.processUKEYAlert(&ukeyMessage)
-	}
-	if isDisconnection {
-		return ErrConnWasEndedByClient
-	}
-
-	if !isKeepAlive && !isUKEYAlert {
-		return ErrNotServiceMessage
-	}
-
-	return nil
-}
-
-func (cc *commConn) decryptMessage(msg []byte) ([]byte, error) {
-	// unmarshal secure message
-	var secMsg pbSecureMessage.SecureMessage
-	if err := proto.Unmarshal(msg, &secMsg); err != nil {
-		return nil, fmt.Errorf("unmarshal secure message: %w", err)
-	}
-	if err := cc.cipher.ValidateSignature(secMsg.GetHeaderAndBody(), secMsg.GetSignature()); err != nil {
-		return nil, err
-	}
-
-	// unmarshal header and body
-	var hb pbSecureMessage.HeaderAndBody
-	if err := proto.Unmarshal(secMsg.GetHeaderAndBody(), &hb); err != nil {
-		return nil, fmt.Errorf("unmarshal secure message: %w", err)
-	}
-	if err := validateHeaderAndBody(&hb); err != nil {
-		return nil, err
-	}
-
-	// decrypt header and body into device to device message
-	d2dMsg, err := cc.cipher.Decrypt(&hb)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt message: %w", err)
-	}
-
-	return d2dMsg.GetMessage(), nil
-}
-
-func validateHeaderAndBody(hb *pbSecureMessage.HeaderAndBody) error {
-	if hb.GetHeader().GetEncryptionScheme() != pbSecureMessage.EncScheme_AES_256_CBC {
-		return ErrInvalidEncryptionScheme
-	}
-	if hb.GetHeader().GetSignatureScheme() != pbSecureMessage.SigScheme_HMAC_SHA256 {
-		return ErrInvalidSignatureScheme
-	}
-	if len(hb.GetHeader().GetIv()) < 16 {
-		return ErrInvalidIV
-	}
-
-	return nil
 }

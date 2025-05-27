@@ -128,7 +128,7 @@ func (cc *commConn) processConnResponse(req *pbConnections.ConnectionResponseFra
 	if err := cc.cipher.Setup(); err != nil {
 		return fmt.Errorf("setup cipher: %w", err)
 	}
-	cc.phase = pairingPhase
+	cc.phase = pairing_phase
 	return nil
 }
 

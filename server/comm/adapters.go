@@ -111,7 +111,6 @@ func (cc *commConn) writeSecureFrame(frame *pbSharing.V1Frame) error {
 	return nil
 }
 
-// TODO: maybe only pass pbSharing.V1Frame and parametrize through args
 func (cc *commConn) encryptAndWrite(payload *pbConnections.V1Frame) error {
 	offlineFrame, err := marshalOfflineFrame(payload)
 	if err != nil {

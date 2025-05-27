@@ -6,7 +6,6 @@ require (
 	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/stretchr/testify v1.10.0
-	go.uber.org/mock v0.5.2
 	google.golang.org/protobuf v1.36.6
 	tinygo.org/x/bluetooth v0.11.0
 )

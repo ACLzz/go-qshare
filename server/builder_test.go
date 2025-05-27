@@ -150,7 +150,7 @@ func TestBuilder(t *testing.T) {
 				tt.prepare(t, builder)
 			}
 
-			server, err := builder.Build()
+			server, err := builder.Build(nil, nil)
 			if tt.expect.err != nil {
 				assert.ErrorIs(t, err, tt.expect.err)
 				return

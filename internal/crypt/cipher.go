@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"math/big"
 
 	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
@@ -24,7 +25,7 @@ import (
 */
 
 const (
-	nextLabel = "UKEY2 v1 next"
+	secretLabel = "UKEY2 v1 next"
 )
 
 var (
@@ -35,15 +36,15 @@ var (
 type Cipher struct {
 	isServer bool
 
-	receiverInitMsg    []byte
-	receiverPrivateKey *ecdh.PrivateKey
-	senderInitMsg      []byte
-	senderPublicKey    *ecdh.PublicKey
+	receiverInitMsg []byte
+	senderInitMsg   []byte
 
-	senderHMACKey   []byte
-	receiverHMACKey []byte
-	decryptBlock    cipher.Block
-	encryptBlock    cipher.Block
+	senderHMAC         hash.Hash
+	receiverHMAC       hash.Hash
+	receiverPrivateKey *ecdh.PrivateKey
+	senderPublicKey    *ecdh.PublicKey
+	decryptBlock       cipher.Block
+	encryptBlock       cipher.Block
 }
 
 func NewCipher(isServer bool) Cipher {
@@ -122,6 +123,7 @@ func (c *Cipher) Setup() error {
 		return ErrInvalidCipher
 	}
 
+	// derive connection secret
 	secret, err := c.receiverPrivateKey.ECDH(c.senderPublicKey)
 	if err != nil {
 		return fmt.Errorf("get dh secret: %w", err)
@@ -132,32 +134,38 @@ func (c *Cipher) Setup() error {
 	copy(ukeyInfo, c.senderInitMsg)
 	copy(ukeyInfo[len(c.senderInitMsg):], c.receiverInitMsg)
 
-	next, err := hkdfExtractExpand(secretHash[:], []byte(nextLabel), string(ukeyInfo))
+	connSecret, err := hkdfExtractExpand(secretHash[:], []byte(secretLabel), string(ukeyInfo))
 	if err != nil {
-		return fmt.Errorf("generate next secret: %w", err)
+		return fmt.Errorf("generate connection secret: %w", err)
 	}
 
+	// derive device to device keys
 	senderInfo, receiverInfo := mapSenderReceiverInfo(c.isServer)
-	d2dSenderKey, err := hkdfExtractExpand(next, d2dSalt, senderInfo)
+	d2dSenderKey, err := hkdfExtractExpand(connSecret, d2dSalt, senderInfo)
 	if err != nil {
 		return fmt.Errorf("derive d2d sender key: %w", err)
 	}
 
-	d2dReceiverKey, err := hkdfExtractExpand(next, d2dSalt, receiverInfo)
+	d2dReceiverKey, err := hkdfExtractExpand(connSecret, d2dSalt, receiverInfo)
 	if err != nil {
 		return fmt.Errorf("derive d2d receiver key: %w", err)
 	}
 
-	c.senderHMACKey, err = hkdfExtractExpand(d2dSenderKey, encSalt, "SIG:1")
+	// derive HMAC keys
+	senderHMACKey, err := hkdfExtractExpand(d2dSenderKey, encSalt, "SIG:1")
 	if err != nil {
 		return fmt.Errorf("derive sender hmac key: %w", err)
 	}
 
-	c.receiverHMACKey, err = hkdfExtractExpand(d2dReceiverKey, encSalt, "SIG:1")
+	receiverHMACKey, err := hkdfExtractExpand(d2dReceiverKey, encSalt, "SIG:1")
 	if err != nil {
 		return fmt.Errorf("derive receiver hmac key: %w", err)
 	}
 
+	c.senderHMAC = hmac.New(sha256.New, senderHMACKey)
+	c.receiverHMAC = hmac.New(sha256.New, receiverHMACKey)
+
+	// derive keys and create decrypt/encrypt blocks
 	decryptKey, err := hkdfExtractExpand(d2dSenderKey, encSalt, "ENC:2")
 	if err != nil {
 		return fmt.Errorf("derive decrypt key: %w", err)
@@ -182,12 +190,12 @@ func (c *Cipher) Setup() error {
 }
 
 func (c *Cipher) ValidateSignature(hb, signature []byte) error {
-	h := hmac.New(sha256.New, c.senderHMACKey)
-	if _, err := h.Write(hb); err != nil {
+	defer c.senderHMAC.Reset()
+	if _, err := c.senderHMAC.Write(hb); err != nil {
 		return fmt.Errorf("get hmac_sha256 from header and body: %w", err)
 	}
 
-	expectedSig := h.Sum(nil)
+	expectedSig := c.senderHMAC.Sum(nil)
 	for i := range expectedSig {
 		if expectedSig[i] != signature[i] {
 			return ErrInvalidSecureMessageSignature
@@ -198,9 +206,9 @@ func (c *Cipher) ValidateSignature(hb, signature []byte) error {
 }
 
 func (c *Cipher) Sign(data []byte) []byte {
-	hmacH := hmac.New(sha256.New, c.receiverHMACKey)
-	hmacH.Write(data)
-	return hmacH.Sum(nil)
+	defer c.receiverHMAC.Reset()
+	c.receiverHMAC.Write(data)
+	return c.receiverHMAC.Sum(nil)
 }
 
 func mapSenderReceiverInfo(isServer bool) (string, string) {

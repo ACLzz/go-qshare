@@ -9,7 +9,9 @@ import (
 	"net"
 	"sync"
 
+	qshare "github.com/ACLzz/go-qshare"
 	"github.com/ACLzz/go-qshare/internal/crypt"
+	"github.com/ACLzz/go-qshare/internal/payloads"
 	"github.com/ACLzz/go-qshare/log"
 	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
 	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
@@ -17,28 +19,43 @@ import (
 )
 
 const (
-	max_message_length = 32 * 1024 // 32 Kb
-	init_buf_size      = 1 * 1024  // 1 Kb
+	max_message_length = 5 * 1024 * 1024 // 5 MB
+	init_buf_size      = 1 * 1024        // 1 Kb
 )
 
 type commConn struct {
-	conn                net.Conn
-	cipher              crypt.Cipher
-	log                 log.Logger
+	conn   net.Conn
+	cipher crypt.Cipher
+	log    log.Logger
+
 	nextExpectedMessage expectedMessage
 	phase               phase
 	seqNumber           int32
 	buf                 []byte
+
+	textPayload      *qshare.TextPayload // text payload can be sent only one
+	filePayloads     map[int64]*payloads.FilePayload
+	expectedPayloads int
+	receivedPayloads int
+	textCallback     qshare.TextCallback
+	fileCallback     qshare.FileCallback
 }
 
-func newCommConn(conn net.Conn, logger log.Logger) commConn {
+func newCommConn(
+	conn net.Conn,
+	logger log.Logger,
+	textCallback qshare.TextCallback,
+	fileCallback qshare.FileCallback,
+) commConn {
 	return commConn{
 		conn:                conn,
 		cipher:              crypt.NewCipher(true),
 		log:                 logger,
 		nextExpectedMessage: conn_request,
-		phase:               initConnPhase,
+		phase:               init_phase,
 		buf:                 make([]byte, 0, init_buf_size),
+		textCallback:        textCallback,
+		fileCallback:        fileCallback,
 	}
 }
 
@@ -58,26 +75,28 @@ func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		default:
 			// fetch length of the upcoming message
-			if _, err = cc.conn.Read(lenBuf); err != nil {
+			if _, err = io.ReadFull(cc.conn, lenBuf); err != nil {
 				if errors.Is(err, io.EOF) {
+					cc.log.Debug("conn ended abruptly")
 					return
 				}
 
 				cc.log.Error("read msg length", err)
+				lenBuf = make([]byte, 4)
 				continue
 			}
 
 			msgLen = binary.BigEndian.Uint32(lenBuf[:])
+			lenBuf = make([]byte, 4)
+
 			if msgLen > max_message_length {
 				cc.log.Error("message is too long", nil, "length", msgLen)
 				return
 			}
 
-			cc.log.Debug("got message", "length", msgLen)
 			msgBuf := make([]byte, msgLen)
-
 			// fetch message in bytes
-			if _, err = cc.conn.Read(msgBuf); err != nil {
+			if _, err = io.ReadFull(cc.conn, msgBuf); err != nil {
 				cc.log.Error("fetch message", err)
 				continue
 			}
@@ -101,56 +120,23 @@ func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
 				continue
 			}
 
-			if cc.phase == disconnectPhase {
-				if err = cc.disconnect(); err != nil {
-					cc.log.Error("error while disconnecting", err)
-				}
+			if cc.phase == disconnect_phase {
+				cc.disconnect()
 				return
 			}
 		}
 	}
 }
 
-func (cc *commConn) processKeepAliveMessage(frame *pbConnections.OfflineFrame) {
-	keepAliveFrame := pbConnections.V1Frame{
-		Type: pbConnections.V1Frame_KEEP_ALIVE.Enum(),
-		KeepAlive: &pbConnections.KeepAliveFrame{
-			Ack: proto.Bool(true),
-		},
-	}
-
-	var err error
-	if cc.phase > initConnPhase {
-		err = cc.encryptAndWrite(&keepAliveFrame)
-	} else {
-		err = cc.writeOfflineFrame(&keepAliveFrame)
-	}
-	if err != nil {
-		cc.log.Error("send keep alive message", err)
-	}
-}
-
-func (cc *commConn) processUKEYAlert(ukeyMessage *pbSecuregcm.Ukey2Message) {
-	var alert pbSecuregcm.Ukey2Alert
-	if err := proto.Unmarshal(ukeyMessage.GetMessageData(), &alert); err != nil {
-		return
-	}
-
-	alertType, ok := pbSecuregcm.Ukey2Alert_AlertType_name[int32(alert.GetType())]
-	if !ok {
-		return
-	}
-
-	cc.log.Warn("got an alert", "type", alertType, "message", alert.GetErrorMessage())
-}
-
-func (cc *commConn) disconnect() error {
-	return cc.writeOfflineFrame(&pbConnections.V1Frame{
+func (cc *commConn) disconnect() {
+	if err := cc.writeOfflineFrame(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_DISCONNECTION.Enum(),
 		Disconnection: &pbConnections.DisconnectionFrame{
 			AckSafeToDisconnect: proto.Bool(true),
 		},
-	})
+	}); err != nil {
+		cc.log.Error("error while disconnecting", err)
+	}
 }
 
 func (cc *commConn) writeMessage(data []byte) error {
@@ -167,7 +153,6 @@ func (cc *commConn) writeMessage(data []byte) error {
 		return fmt.Errorf("send message to client: %w", err)
 	}
 
-	cc.log.Debug("sent message to client")
 	return nil
 }
 

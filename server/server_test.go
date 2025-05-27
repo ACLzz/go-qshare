@@ -19,7 +19,7 @@ func TestServer_StartStop(t *testing.T) {
 	clk := qshare.NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
 
 	t.Run("start_stop_with_listen", func(t *testing.T) {
-		server, err := qserver.NewServerBuilder(clk).Build()
+		server, err := qserver.NewServerBuilder(clk).Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -28,7 +28,7 @@ func TestServer_StartStop(t *testing.T) {
 	})
 
 	t.Run("start_stop_without_listen", func(t *testing.T) {
-		server, err := qserver.NewServerBuilder(clk).Build()
+		server, err := qserver.NewServerBuilder(clk).Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -49,7 +49,7 @@ func TestServer_mDNS(t *testing.T) {
 		server, err := qserver.NewServerBuilder(clk).
 			WithHostname(hostname).
 			WithPort(port).
-			Build()
+			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -83,7 +83,7 @@ func TestServer_mDNS(t *testing.T) {
 		machineHostname, err := os.Hostname()
 		require.NoError(t, err)
 
-		server, err := qserver.NewServerBuilder(clk).Build()
+		server, err := qserver.NewServerBuilder(clk).Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -130,7 +130,7 @@ func TestServer_bleAdvertisements(t *testing.T) {
 		})
 
 		server, err := qserver.NewServerBuilder(clk).
-			Build()
+			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 

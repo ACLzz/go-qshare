@@ -3,18 +3,17 @@ package comm
 type phase uint8
 
 const (
-	initConnPhase phase = iota
-	pairingPhase
-	transferPhase
-	disconnectPhase
+	init_phase phase = iota
+	pairing_phase
+	transfer_phase
+	disconnect_phase
 )
 
 type expectedMessage uint8
 
 const (
-	unknown_message_type expectedMessage = iota
 	// init connection phase
-	conn_request
+	conn_request expectedMessage = iota
 	client_init
 	client_finish
 	conn_response
@@ -24,7 +23,6 @@ const (
 	// transfer phase
 	introduction
 	accept_reject
-	transfer_start
 	transfer_complete
 )
 
