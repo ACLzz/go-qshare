@@ -1,6 +1,8 @@
 FLAGS = -gcflags=all=-l -parallel=1
+PROTO_DIR = internal/protobuf
+PROTO_GEN_DIR = $(PROTO_DIR)/gen
 PROTO = protoc \
-		--proto_path=protobuf \
+		--proto_path=$(PROTO_DIR) \
 		--go_opt=paths=source_relative
 
 dep:
@@ -10,24 +12,24 @@ dep:
 proto:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-	mkdir -p ./protobuf/gen/securegcm
-	$(PROTO) --go_out=protobuf/gen/securegcm ./protobuf/device_to_device_messages.proto ./protobuf/securegcm.proto ./protobuf/ukey.proto
+	mkdir -p ./$(PROTO_GEN_DIR)/securegcm
+	$(PROTO) --go_out=$(PROTO_GEN_DIR)/securegcm ./$(PROTO_DIR)/device_to_device_messages.proto ./$(PROTO_DIR)/securegcm.proto ./$(PROTO_DIR)/ukey.proto
 	
-	mkdir -p ./protobuf/gen/connections
-	$(PROTO) --go_out=protobuf/gen/connections ./protobuf/offline_wire_formats.proto
+	mkdir -p ./$(PROTO_GEN_DIR)/connections
+	$(PROTO) --go_out=$(PROTO_GEN_DIR)/connections ./$(PROTO_DIR)/offline_wire_formats.proto
 
-	mkdir -p ./protobuf/gen/securemessage
-	$(PROTO) --go_out=protobuf/gen/securemessage ./protobuf/securemessage.proto
+	mkdir -p ./$(PROTO_GEN_DIR)/securemessage
+	$(PROTO) --go_out=$(PROTO_GEN_DIR)/securemessage ./$(PROTO_DIR)/securemessage.proto
 	
-	mkdir -p ./protobuf/gen/sharing
-	$(PROTO) --go_out=protobuf/gen/sharing ./protobuf/wire_format.proto
+	mkdir -p ./$(PROTO_GEN_DIR)/sharing
+	$(PROTO) --go_out=$(PROTO_GEN_DIR)/sharing ./$(PROTO_DIR)/wire_format.proto
 
 # TODO: make it work from docker run
 mock:
 	go install go.uber.org/mock/mockgen@latest
 
 clean:
-	rm -rfv ./protobuf/gen
+	rm -rfv ./$(PROTO_GEN_DIR)
 	rm -rvf ./mocks
 
 test:

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 syntax = "proto2";
-option go_package = "github.com/ACLzz/go-qshare/protobuf/gen/securegcm";
+option go_package = "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm";
 
 package securegcm;
 

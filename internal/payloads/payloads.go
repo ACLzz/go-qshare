@@ -4,7 +4,7 @@ import (
 	"io"
 
 	qshare "github.com/ACLzz/go-qshare"
-	pbSharing "github.com/ACLzz/go-qshare/protobuf/gen/sharing"
+	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
 )
 
 type FilePayload struct {

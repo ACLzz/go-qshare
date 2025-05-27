@@ -6,10 +6,11 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	adapter "github.com/ACLzz/go-qshare/internal/comm"
 	"github.com/ACLzz/go-qshare/internal/crypt"
-	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
-	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
-	pbSecureMessage "github.com/ACLzz/go-qshare/protobuf/gen/securemessage"
+	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
+	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
+	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -60,7 +61,7 @@ func (cc *commConn) processUKEYInitMessage(ukeyMessage *pbSecuregcm.Ukey2Message
 	if err != nil {
 		return fmt.Errorf("marshal UKEY Message: %w", err)
 	}
-	err = cc.writeUKEYMessage(pbSecuregcm.Ukey2Message_SERVER_INIT, serverInitMsg)
+	err = cc.adapter.WriteUKEYMessage(pbSecuregcm.Ukey2Message_SERVER_INIT, serverInitMsg)
 	if err != nil {
 		return fmt.Errorf("write ukey message: %w", err)
 	}
@@ -107,11 +108,11 @@ func (cc *commConn) processConnResponse(req *pbConnections.ConnectionResponseFra
 		return ErrInvalidMessage
 	}
 	if req.GetResponse() != pbConnections.ConnectionResponseFrame_ACCEPT {
-		return ErrConnWasEndedByClient
+		return adapter.ErrConnWasEndedByClient
 	}
 
 	// response with accept
-	if err := cc.writeOfflineFrame(&pbConnections.V1Frame{
+	if err := cc.adapter.WriteOfflineFrame(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_CONNECTION_RESPONSE.Enum(),
 		ConnectionResponse: &pbConnections.ConnectionResponseFrame{
 			Response: pbConnections.ConnectionResponseFrame_ACCEPT.Enum(),
@@ -136,7 +137,7 @@ func newServerInitMessage(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	pbPublicKey, err := proto.Marshal(&pbSecureMessage.GenericPublicKey{
 		Type: pbSecureMessage.PublicKeyType_EC_P256.Enum(),
 		EcP256PublicKey: &pbSecureMessage.EcP256PublicKey{
-			X: privateKey.PublicKey.X.FillBytes(make([]byte, 33)), // TODO: what does it do?
+			X: privateKey.PublicKey.X.FillBytes(make([]byte, 33)),
 			Y: privateKey.PublicKey.Y.FillBytes(make([]byte, 33)),
 		},
 	})

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/ACLzz/go-qshare/internal/payloads"
-	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
-	pbSharing "github.com/ACLzz/go-qshare/protobuf/gen/sharing"
+	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
+	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -32,7 +32,7 @@ func (cc *commConn) processTransferRequest(msg *pbSharing.ConnectionResponseFram
 		return ErrInvalidMessage
 	}
 
-	if err := cc.writeSecureFrame(&pbSharing.V1Frame{
+	if err := cc.adapter.WriteSecureFrame(&pbSharing.V1Frame{
 		Type: pbSharing.V1Frame_RESPONSE.Enum(),
 		ConnectionResponse: &pbSharing.ConnectionResponseFrame{
 			Status: pbSharing.ConnectionResponseFrame_ACCEPT.Enum(),

@@ -177,7 +177,11 @@ func (b *serverBuilder) propPort() error {
 	if err != nil {
 		return fmt.Errorf("open tcp socket: %w", err)
 	}
-	defer l.Close() // TODO: handle error
+	defer func() {
+		if err := l.Close(); err != nil {
+			b.logger.Error("close listener", err)
+		}
+	}()
 
 	b.port = l.Addr().(*net.TCPAddr).Port
 	return nil

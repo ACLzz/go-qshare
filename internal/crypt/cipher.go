@@ -14,8 +14,8 @@ import (
 	"hash"
 	"math/big"
 
-	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
-	pbSecureMessage "github.com/ACLzz/go-qshare/protobuf/gen/securemessage"
+	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
+	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
 	"google.golang.org/protobuf/proto"
 )
 

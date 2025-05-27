@@ -3,9 +3,8 @@ package comm
 import "errors"
 
 var (
-	ErrInvalidMessage         = errors.New("got invalid message from client")
-	ErrInvalidHandshakeCipher = errors.New("no supported handshake ciphers was found")
-	ErrInternalError          = errors.New("internal error")
+	ErrConnWasEndedByClient = errors.New("connection was ended by client")
+	ErrNotServiceMessage    = errors.New("message is not service message")
 )
 
 var (

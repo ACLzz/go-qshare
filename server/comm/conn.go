@@ -4,18 +4,16 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"sync"
 
 	qshare "github.com/ACLzz/go-qshare"
+	adapter "github.com/ACLzz/go-qshare/internal/comm"
 	"github.com/ACLzz/go-qshare/internal/crypt"
 	"github.com/ACLzz/go-qshare/internal/payloads"
+	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
 	"github.com/ACLzz/go-qshare/log"
-	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
-	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -24,13 +22,13 @@ const (
 )
 
 type commConn struct {
-	conn   net.Conn
-	cipher crypt.Cipher
-	log    log.Logger
+	adapter adapter.Adapter
+	conn    net.Conn
+	cipher  *crypt.Cipher
+	log     log.Logger
 
 	nextExpectedMessage expectedMessage
 	phase               phase
-	seqNumber           int32
 	buf                 []byte
 
 	textPayload      *qshare.TextPayload // text payload can be sent only one
@@ -47,9 +45,11 @@ func newCommConn(
 	textCallback qshare.TextCallback,
 	fileCallback qshare.FileCallback,
 ) commConn {
+	cipher := crypt.NewCipher(true)
 	return commConn{
+		adapter:             adapter.NewAdapter(conn, logger, &cipher),
 		conn:                conn,
-		cipher:              crypt.NewCipher(true),
+		cipher:              &cipher,
 		log:                 logger,
 		nextExpectedMessage: conn_request,
 		phase:               init_phase,
@@ -104,14 +104,14 @@ func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
 			// route the message
 			if err = cc.route(msgBuf); err != nil {
 				if errors.Is(err, ErrInvalidMessage) {
-					if err = cc.writeError(pbSecuregcm.Ukey2Alert_BAD_MESSAGE, ErrInvalidMessage.Error()); err != nil {
+					if err = cc.adapter.WriteError(pbSecuregcm.Ukey2Alert_BAD_MESSAGE, ErrInvalidMessage.Error()); err != nil {
 						cc.log.Error("send error to client", err)
 					}
 					cc.log.Warn("got invalid message", "expectedMessage", cc.nextExpectedMessage)
 					continue
 				}
 
-				if errors.Is(err, ErrConnWasEndedByClient) {
+				if errors.Is(err, adapter.ErrConnWasEndedByClient) {
 					cc.log.Debug("conn was ended by client")
 					return
 				}
@@ -121,39 +121,11 @@ func (cc *commConn) Accept(ctx context.Context, wg *sync.WaitGroup) {
 			}
 
 			if cc.phase == disconnect_phase {
-				cc.disconnect()
+				cc.adapter.Disconnect()
 				return
 			}
 		}
 	}
-}
-
-func (cc *commConn) disconnect() {
-	if err := cc.writeOfflineFrame(&pbConnections.V1Frame{
-		Type: pbConnections.V1Frame_DISCONNECTION.Enum(),
-		Disconnection: &pbConnections.DisconnectionFrame{
-			AckSafeToDisconnect: proto.Bool(true),
-		},
-	}); err != nil {
-		cc.log.Error("error while disconnecting", err)
-	}
-}
-
-func (cc *commConn) writeMessage(data []byte) error {
-	// TODO: is there more efficient way to do this?
-	msgLength := len(data)
-	msgWithPrefix := make([]byte, 4, msgLength+4)
-	msgWithPrefix[0] = byte(uint8(msgLength >> 24))
-	msgWithPrefix[1] = byte(uint8(msgLength >> 16))
-	msgWithPrefix[2] = byte(uint8(msgLength >> 8))
-	msgWithPrefix[3] = byte(uint8(msgLength))
-	msgWithPrefix = append(msgWithPrefix, data...)
-
-	if _, err := cc.conn.Write(msgWithPrefix); err != nil {
-		return fmt.Errorf("send message to client: %w", err)
-	}
-
-	return nil
 }
 
 func (cc *commConn) clearBuf() {

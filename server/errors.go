@@ -2,6 +2,7 @@ package server
 
 import "errors"
 
+// builder
 var (
 	ErrInvalidPort       = errors.New("invalid port value")
 	ErrInvalidAdapter    = errors.New("invalid adapter")

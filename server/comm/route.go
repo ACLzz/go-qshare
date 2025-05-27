@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
-	pbSecuregcm "github.com/ACLzz/go-qshare/protobuf/gen/securegcm"
-	pbSharing "github.com/ACLzz/go-qshare/protobuf/gen/sharing"
+	adapter "github.com/ACLzz/go-qshare/internal/comm"
+	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
+	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
+	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -14,7 +15,7 @@ import (
 func (cc *commConn) route(msg []byte) (err error) {
 	// all messages after init connection phase are encrypted
 	if cc.phase > init_phase {
-		msg, err = cc.decryptMessage(msg)
+		msg, err = cc.adapter.DecryptMessage(msg)
 		if err != nil {
 			return err
 		}
@@ -113,8 +114,8 @@ func (cc *commConn) route(msg []byte) (err error) {
 
 	if err != nil {
 		// check if message was actually service message
-		if innerErr := cc.processServiceMessage(msg); innerErr != nil {
-			if errors.Is(innerErr, ErrConnWasEndedByClient) {
+		if innerErr := cc.adapter.ProcessServiceMessage(msg); innerErr != nil {
+			if errors.Is(innerErr, adapter.ErrConnWasEndedByClient) {
 				return innerErr
 			}
 			return err

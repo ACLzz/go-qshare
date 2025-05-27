@@ -15,7 +15,7 @@
 // Proto definitions for SecureMessage format
 
 syntax = "proto2";
-option go_package = "github.com/ACLzz/go-qshare/protobuf/gen/securemessage";
+option go_package = "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage";
 
 package securemessage;
 
