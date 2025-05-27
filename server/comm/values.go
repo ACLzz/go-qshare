@@ -23,6 +23,7 @@ const (
 	// transfer phase
 	introduction
 	accept_reject
+	transfer_start
 	transfer_complete
 )
 

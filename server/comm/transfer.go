@@ -2,7 +2,6 @@ package comm
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/ACLzz/go-qshare/internal/payloads"
 	pbConnections "github.com/ACLzz/go-qshare/protobuf/gen/connections"
@@ -46,16 +45,14 @@ func (cc *commConn) processTransferRequest(msg *pbSharing.ConnectionResponseFram
 }
 
 func (cc *commConn) processTransferComplete() error {
-	var offFrame pbConnections.OfflineFrame
-	if err := proto.Unmarshal(cc.buf, &offFrame); err == nil && offFrame.GetV1().GetType() == pbConnections.V1Frame_KEEP_ALIVE {
-		cc.processKeepAliveMessage()
-		return nil
-	}
-
-	fmt.Println(cc.buf)
-
 	cc.receivedPayloads++
 	if cc.receivedPayloads >= cc.expectedPayloads {
+		for _, file := range cc.filePayloads {
+			if file.BytesSent != file.Size {
+				cc.log.Warn("has unfinished file transfer", "filename", file.Title, "transferred", file.BytesSent, "left", file.Size-file.BytesSent)
+			}
+		}
+
 		cc.phase = disconnect_phase
 		cc.log.Debug("got last payload, disconnecting...")
 	}
@@ -104,12 +101,10 @@ func (cc *commConn) writeFileChunk(id int64, chunk *pbConnections.PayloadTransfe
 	}
 
 	if len(chunk.GetBody()) > 0 {
-		cc.log.Debug("writing file chunk to client", "size", len(chunk.GetBody()))
 		n, err := file.Pw.Write(chunk.GetBody())
 		if err != nil {
 			return transfer_error, fmt.Errorf("writing chunk to pipe: %w", err)
 		}
-		cc.log.Debug("written chunk", "size", n)
 
 		if n != len(chunk.GetBody()) {
 			return transfer_error, ErrInternalError // TODO: another error
@@ -119,12 +114,11 @@ func (cc *commConn) writeFileChunk(id int64, chunk *pbConnections.PayloadTransfe
 	}
 
 	if chunk.GetFlags()&1 == 1 {
-		time.Sleep(2 * time.Second)
 		file.Pw.Close()
 		if file.BytesSent != file.Size {
 			return transfer_error, ErrInvalidMessage // TODO: another error
 		}
-		cc.log.Debug("file downloaded", "filename", file.Title)
+		cc.log.Debug("file transferedp", "filename", file.Title)
 		return transfer_finished, nil
 	}
 

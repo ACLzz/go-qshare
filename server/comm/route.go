@@ -11,15 +11,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var mysteryFrame = []byte{
-	0x08, 0x01,
-	0x12, 0x0b,
-	0x08, 0x07,
-	0x3a, 0x07,
-	0x0d, 0x00, 0x00, 0x00, 0x00,
-	0x10, 0x01,
-}
-
 func (cc *commConn) route(msg []byte) (err error) {
 	// all messages after init connection phase are encrypted
 	if cc.phase > init_phase {
@@ -31,26 +22,13 @@ func (cc *commConn) route(msg []byte) (err error) {
 
 	// process transfer if it is running
 	if status, err := cc.processOngoingTransfer(msg); status > transfer_not_started {
+		msg = nil
 		switch status {
 		case transfer_in_progress:
 			return nil
 		case transfer_finished:
 			if len(cc.buf) > 0 {
 				defer cc.clearBuf()
-
-				// TODO: FIXME (workaround)
-				if len(cc.buf) == len(mysteryFrame) {
-					isTheSame := true
-					for i := range mysteryFrame {
-						if mysteryFrame[i] != cc.buf[i] {
-							isTheSame = false
-						}
-					}
-
-					if isTheSame {
-						return nil
-					}
-				}
 			}
 		case transfer_error:
 			if err != nil {
@@ -59,11 +37,20 @@ func (cc *commConn) route(msg []byte) (err error) {
 		}
 	}
 
-	nextMessage := cc.nextExpectedMessage
-	offFrame, ukeyMessage, sharingFrame, unmarshalErr := cc.unmarshalInboundMessage(msg)
-	if unmarshalErr != nil {
-		if err == nil {
-			err = fmt.Errorf("unmarshal inbound message: %w", unmarshalErr)
+	var (
+		nextMessage  = cc.nextExpectedMessage
+		offFrame     *pbConnections.OfflineFrame
+		ukeyMessage  *pbSecuregcm.Ukey2Message
+		sharingFrame *pbSharing.Frame
+	)
+
+	if cc.nextExpectedMessage < transfer_start {
+		var unmarshalErr error
+		offFrame, ukeyMessage, sharingFrame, unmarshalErr = cc.unmarshalInboundMessage(msg)
+		if unmarshalErr != nil {
+			if err == nil {
+				err = fmt.Errorf("unmarshal inbound message: %w", unmarshalErr)
+			}
 		}
 	}
 
@@ -108,10 +95,18 @@ func (cc *commConn) route(msg []byte) (err error) {
 			// accept or reject response
 			case accept_reject:
 				err = cc.processTransferRequest(sharingFrame.GetV1().GetConnectionResponse())
+				nextMessage = transfer_start
+			// filler phase, doesn't have frame
+			case transfer_start:
 				nextMessage = transfer_complete
 			// transfer complete
 			case transfer_complete:
-				err = cc.processTransferComplete()
+				// ignore all regular messages and pass them to the service messages processor
+				if len(msg) == 0 {
+					err = cc.processTransferComplete()
+				} else {
+					err = ErrInvalidMessage
+				}
 			}
 		}
 	}
