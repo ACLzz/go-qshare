@@ -1,4 +1,4 @@
-package comm
+package listener
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/ACLzz/go-qshare/log"
 )
 
-type Server struct {
+type Listener struct {
 	sock         net.Listener
 	wg           *sync.WaitGroup
 	log          log.Logger
@@ -19,18 +19,18 @@ type Server struct {
 	stopCh       chan struct{}
 }
 
-func NewServer(
+func New(
 	port int,
 	log log.Logger,
 	textCallback qshare.TextCallback,
 	fileCallback qshare.FileCallback,
-) (Server, error) {
+) (Listener, error) {
 	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return Server{}, fmt.Errorf("start socket: %w", err)
+		return Listener{}, fmt.Errorf("start socket: %w", err)
 	}
 
-	return Server{
+	return Listener{
 		sock:         sock,
 		wg:           &sync.WaitGroup{},
 		log:          log,
@@ -40,47 +40,47 @@ func NewServer(
 	}, nil
 }
 
-func (s Server) Listen() {
+func (l Listener) Listen() {
 	var (
 		conn net.Conn
 		err  error
 	)
-	s.wg.Add(1)
-	defer s.wg.Done()
-	s.log.Debug("communication server started", "addr", s.sock.Addr().String())
+	l.wg.Add(1)
+	defer l.wg.Done()
+	l.log.Debug("listener started", "addr", l.sock.Addr().String())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	for {
-		conn, err = s.sock.Accept()
+		conn, err = l.sock.Accept()
 		if err != nil {
 			select {
-			case <-s.stopCh:
+			case <-l.stopCh:
 				return
 			default:
-				s.log.Error("accept conn", err)
+				l.log.Error("accept conn", err)
 			}
 			continue
 		}
 
-		s.wg.Add(1)
-		c := newCommConn(conn, s.log, s.textCallback, s.fileCallback)
-		go c.Accept(ctx, s.wg) // TODO: maybe limit amount of gorutines here
+		l.wg.Add(1)
+		c := newConnection(ctx, conn, l.log, l.textCallback, l.fileCallback)
+		go c.Accept(l.wg) // TODO: maybe limit amount of gorutines here
 	}
 }
 
-func (s Server) Stop() error {
-	s.log.Debug("stopping communication server...")
-	if s.sock == nil {
+func (l Listener) Stop() error {
+	l.log.Debug("stopping listener...")
+	if l.sock == nil {
 		return nil
 	}
 
-	s.stopCh <- struct{}{}
-	if err := s.sock.Close(); err != nil {
+	l.stopCh <- struct{}{}
+	if err := l.sock.Close(); err != nil {
 		return fmt.Errorf("close socket: %w", err)
 	}
-	s.wg.Wait()
+	l.wg.Wait()
 
-	s.log.Debug("communication server stopped")
+	l.log.Debug("listener stopped")
 	return nil
 }

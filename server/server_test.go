@@ -19,7 +19,7 @@ func TestServer_StartStop(t *testing.T) {
 	clk := qshare.NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
 
 	t.Run("start_stop_with_listen", func(t *testing.T) {
-		server, err := qserver.NewServerBuilder(clk).Build(nil, nil)
+		server, err := qserver.NewBuilder(clk).Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -28,7 +28,7 @@ func TestServer_StartStop(t *testing.T) {
 	})
 
 	t.Run("start_stop_without_listen", func(t *testing.T) {
-		server, err := qserver.NewServerBuilder(clk).Build(nil, nil)
+		server, err := qserver.NewBuilder(clk).Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -46,7 +46,7 @@ func TestServer_mDNS(t *testing.T) {
 		hostname := "test_hostname"
 		port := 6666
 
-		server, err := qserver.NewServerBuilder(clk).
+		server, err := qserver.NewBuilder(clk).
 			WithHostname(hostname).
 			WithPort(port).
 			Build(nil, nil)
@@ -57,7 +57,7 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, err)
 
 		entriesCh := make(chan *zeroconf.ServiceEntry, 2)
-		require.NoError(t, resolv.Browse(context.Background(), qserver.MDNsServiceType, "local.", entriesCh))
+		require.NoError(t, resolv.Browse(context.Background(), comm.MDNsServiceType, "local.", entriesCh))
 
 		select {
 		case <-entriesCh:
@@ -83,7 +83,7 @@ func TestServer_mDNS(t *testing.T) {
 		machineHostname, err := os.Hostname()
 		require.NoError(t, err)
 
-		server, err := qserver.NewServerBuilder(clk).Build(nil, nil)
+		server, err := qserver.NewBuilder(clk).Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -129,7 +129,7 @@ func TestServer_bleAdvertisements(t *testing.T) {
 			return nil
 		})
 
-		server, err := qserver.NewServerBuilder(clk).
+		server, err := qserver.NewBuilder(clk).
 			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)

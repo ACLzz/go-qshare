@@ -1,4 +1,4 @@
-package comm
+package listener
 
 type phase uint8
 
@@ -6,7 +6,6 @@ const (
 	init_phase phase = iota
 	pairing_phase
 	transfer_phase
-	disconnect_phase
 )
 
 type expectedMessage uint8
@@ -24,14 +23,4 @@ const (
 	introduction
 	accept_reject
 	transfer_start
-	transfer_complete
-)
-
-type transferProgress uint8
-
-const (
-	transfer_not_started transferProgress = iota
-	transfer_in_progress
-	transfer_finished
-	transfer_error
 )

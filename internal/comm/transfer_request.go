@@ -1,0 +1,18 @@
+package comm
+
+import pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+
+func (a *Adapter) ValidateTransferRequest(msg []byte) error {
+	frame, err := unmarshalSharingFrame(msg)
+	if err != nil {
+		return err
+	}
+
+	if frame.GetType() != pbSharing.V1Frame_RESPONSE ||
+		frame.GetConnectionResponse() == nil ||
+		frame.GetConnectionResponse().GetStatus() != pbSharing.ConnectionResponseFrame_ACCEPT {
+		return ErrInvalidMessage
+	}
+
+	return nil
+}

@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ACLzz/go-qshare/server/comm"
+	"github.com/ACLzz/go-qshare/internal/mdns"
+	"github.com/ACLzz/go-qshare/server/listener"
 	"github.com/grandcat/zeroconf"
 	"tinygo.org/x/bluetooth"
 )
@@ -14,7 +15,7 @@ type (
 		conf       serverConfig
 		bleAD      *bluetooth.Advertisement
 		mDNSServer *zeroconf.Server
-		commServer comm.Server
+		listener   listener.Listener
 	}
 
 	serverConfig struct {
@@ -23,8 +24,6 @@ type (
 		port int
 	}
 )
-
-const MDNsServiceType = "_FC9F5ED42C8A._tcp"
 
 func (s *Server) Listen() error {
 	if err := s.listen(); err != nil {
@@ -42,7 +41,7 @@ func (s *Server) listen() error {
 	var err error
 	s.mDNSServer, err = zeroconf.Register(
 		s.conf.name,
-		MDNsServiceType,
+		mdns.MDNsServiceType,
 		"local.",
 		s.conf.port,
 		[]string{"n=" + s.conf.txt},
@@ -52,7 +51,7 @@ func (s *Server) listen() error {
 		return fmt.Errorf("start mDNS server: %w", err)
 	}
 
-	go s.commServer.Listen()
+	go s.listener.Listen()
 
 	if err := s.bleAD.Start(); err != nil {
 		return fmt.Errorf("start ble advertisement: %w", err)
@@ -67,8 +66,8 @@ func (s *Server) Stop() error {
 		s.mDNSServer.Shutdown()
 	}
 
-	if err = s.commServer.Stop(); err != nil {
-		gErr = fmt.Errorf("%w: stop communication server: %w", gErr, err)
+	if err = s.listener.Stop(); err != nil {
+		gErr = fmt.Errorf("%w: stop listener: %w", gErr, err)
 	}
 
 	if s.bleAD != nil {

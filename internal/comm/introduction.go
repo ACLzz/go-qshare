@@ -1,4 +1,4 @@
-package payloads
+package comm
 
 import (
 	"io"
@@ -6,6 +6,42 @@ import (
 	qshare "github.com/ACLzz/go-qshare"
 	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
 )
+
+type IntroductionFrame struct {
+	Text  *qshare.TextPayload
+	Files map[int64]*FilePayload // TODO: should it be map of pointers?
+}
+
+func (f IntroductionFrame) HasText() bool {
+	return f.Text != nil
+}
+
+func (f IntroductionFrame) HasFiles() bool {
+	return len(f.Files) > 0
+}
+
+func (a *Adapter) UnmarshalIntroduction(msg []byte) (IntroductionFrame, error) {
+	frame, err := unmarshalSharingFrame(msg)
+	if err != nil {
+		return IntroductionFrame{}, err
+	}
+
+	if frame.GetType() != pbSharing.V1Frame_INTRODUCTION || frame.GetIntroduction() == nil {
+		return IntroductionFrame{}, ErrInvalidMessage
+	}
+
+	// validate that at least one text or file are sent
+	text := frame.GetIntroduction().GetTextMetadata()
+	files := frame.GetIntroduction().GetFileMetadata()
+	if len(files) == 0 && len(text) == 0 {
+		return IntroductionFrame{}, ErrInvalidMessage
+	}
+
+	return IntroductionFrame{
+		Text:  mapTextPayload(text),
+		Files: mapFilePayloads(files),
+	}, nil
+}
 
 type FilePayload struct {
 	qshare.FilePayload
@@ -30,9 +66,13 @@ func newFilePayload(t qshare.FileType, title, mimeType string, payloadID, size i
 	}
 }
 
-func MapTextPayload(payload *pbSharing.TextMetadata) *qshare.TextPayload {
+func mapTextPayload(payloads []*pbSharing.TextMetadata) *qshare.TextPayload {
+	if len(payloads) == 0 {
+		return nil
+	}
+
 	var textType qshare.TextType
-	switch payload.GetType() {
+	switch payloads[0].GetType() {
 	case pbSharing.TextMetadata_TEXT:
 		textType = qshare.TextText
 	case pbSharing.TextMetadata_URL:
@@ -47,12 +87,12 @@ func MapTextPayload(payload *pbSharing.TextMetadata) *qshare.TextPayload {
 
 	return &qshare.TextPayload{
 		Type:  textType,
-		Title: payload.GetTextTitle(),
-		Size:  payload.GetSize(),
+		Title: payloads[0].GetTextTitle(),
+		Size:  payloads[0].GetSize(),
 	}
 }
 
-func MapFilePayloads(payloads []*pbSharing.FileMetadata) map[int64]*FilePayload {
+func mapFilePayloads(payloads []*pbSharing.FileMetadata) map[int64]*FilePayload {
 	var fileType qshare.FileType
 	mappedPayloads := make(map[int64]*FilePayload, len(payloads))
 

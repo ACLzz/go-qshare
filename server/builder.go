@@ -8,14 +8,16 @@ import (
 	"os"
 
 	qshare "github.com/ACLzz/go-qshare"
+	"github.com/ACLzz/go-qshare/internal/ble"
+	"github.com/ACLzz/go-qshare/internal/comm"
+	"github.com/ACLzz/go-qshare/internal/crypt"
 	internalLog "github.com/ACLzz/go-qshare/internal/log"
 	"github.com/ACLzz/go-qshare/log"
-	"github.com/ACLzz/go-qshare/server/comm"
+	"github.com/ACLzz/go-qshare/server/listener"
 
 	"tinygo.org/x/bluetooth"
 )
 
-var ble_service_data_base = [14]byte{252, 18, 142, 1, 66, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 var alphaNumRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 type serverBuilder struct {
@@ -36,7 +38,7 @@ type serverBuilder struct {
 	isLoggerSet           bool
 }
 
-func NewServerBuilder(clk qshare.Clock) *serverBuilder {
+func NewBuilder(clk qshare.Clock) *serverBuilder {
 	return &serverBuilder{
 		rand: rand.New(clk),
 	}
@@ -86,46 +88,30 @@ func (b *serverBuilder) Build(
 		return nil, fmt.Errorf("propagate default values: %w", err)
 	}
 
-	bleAD, err := b.newBLEAdvertisement()
+	bleAD, err := ble.NewAdvertisement(b.adapter, b.rand)
 	if err != nil {
 		return nil, fmt.Errorf("create ble advertisement: %w", err)
 	}
 
-	cs, err := comm.NewServer(b.port, b.logger, textCallback, fileCallback)
+	lisnr, err := listener.New(b.port, b.logger, textCallback, fileCallback)
 	if err != nil {
-		return nil, fmt.Errorf("create communication server: %w", err)
+		return nil, fmt.Errorf("create listener: %w", err)
+	}
+
+	txtBytes, err := comm.CraftEndpointInfo(b.hostname, b.device)
+	if err != nil {
+		return nil, fmt.Errorf("craft endpoint info: %w", err)
 	}
 
 	return &Server{
-		bleAD:      bleAD,
-		commServer: cs,
+		bleAD:    bleAD,
+		listener: lisnr,
 		conf: serverConfig{
 			name: newName(b.endpoint),
 			port: b.port,
-			txt:  newTXT(b.hostname, b.device, b.rand),
+			txt:  base64.RawURLEncoding.EncodeToString(txtBytes),
 		},
 	}, nil
-}
-
-func (b *serverBuilder) newBLEAdvertisement() (*bluetooth.Advertisement, error) {
-	ad := b.adapter.DefaultAdvertisement()
-	bleUUID := bluetooth.New16BitUUID(0xfe2c)
-
-	serviceData := make([]byte, len(ble_service_data_base)+10)
-	copy(serviceData[0:], ble_service_data_base[:])
-	for i := len(ble_service_data_base); i < len(serviceData); i++ {
-		serviceData[i] = byte(b.rand.IntN(256)) // random byte
-	}
-
-	err := ad.Configure(bluetooth.AdvertisementOptions{
-		ServiceData:       []bluetooth.ServiceDataElement{{UUID: bleUUID, Data: serviceData}},
-		AdvertisementType: bluetooth.AdvertisingTypeScanInd,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("configure default ble advertisements: %w", err)
-	}
-
-	return ad, nil
 }
 
 type propagateValueFn func() error
@@ -211,11 +197,11 @@ func (b *serverBuilder) propEndpoint() error {
 		return nil
 	}
 
-	endpoint := make([]byte, 4)
-	for i := range 4 {
-		endpoint[i] = byte(alphaNumRunes[b.rand.IntN(len(alphaNumRunes))])
+	var err error
+	b.endpoint, err = crypt.RandomAlphaNum(4)
+	if err != nil {
+		return fmt.Errorf("generate random endpoint: %w", err)
 	}
-	b.endpoint = endpoint
 
 	return nil
 }

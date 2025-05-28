@@ -2,5 +2,6 @@ __debug*
 .vscode
 protobuf/*
 mocks
+TODO.md
 
 !protobuf/*.proto
