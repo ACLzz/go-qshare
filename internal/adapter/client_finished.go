@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	"fmt"
@@ -37,4 +37,36 @@ func (a *Adapter) ValidateClientFinished(msg []byte) error {
 	}
 
 	return nil
+}
+
+func (a *Adapter) marshalClientFinished() ([]byte, error) {
+	// generate private-public key pair
+	privateKey, publicKey, err := generatePrivatePublicKeys()
+	if err != nil {
+		return nil, fmt.Errorf("generate private public key pair: %w", err)
+	}
+
+	// save private key to cipher
+	if err := a.cipher.SetReceiverPrivateKey(privateKey); err != nil {
+		return nil, fmt.Errorf("save private key: %w", err)
+	}
+
+	// marshal client finished miessage
+	clientFinish, err := proto.Marshal(&pbSecuregcm.Ukey2ClientFinished{
+		PublicKey: publicKey,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal client finished message: %w", err)
+	}
+
+	// marshal ukey message
+	clientFinishMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
+		MessageType: pbSecuregcm.Ukey2Message_CLIENT_FINISH.Enum(),
+		MessageData: clientFinish,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ukey message: %w", err)
+	}
+
+	return clientFinishMsg, nil
 }

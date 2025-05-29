@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	"runtime"
@@ -42,7 +42,7 @@ func (a *Adapter) SendConnResponse(isAccepted bool) error {
 		response = pbConnections.ConnectionResponseFrame_REJECT
 	}
 
-	return a.WriteOfflineFrame(&pbConnections.V1Frame{
+	return a.writeOfflineFrame(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_CONNECTION_RESPONSE.Enum(),
 		ConnectionResponse: &pbConnections.ConnectionResponseFrame{
 			Response: response.Enum(),

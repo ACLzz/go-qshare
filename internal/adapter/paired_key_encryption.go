@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	"fmt"
@@ -33,7 +33,7 @@ func (a *Adapter) SendPairedKeyEncryption() error {
 		return fmt.Errorf("generate signed data: %w", err)
 	}
 
-	return a.WriteSecureFrame(&pbSharing.V1Frame{
+	return a.writeSecureFrame(&pbSharing.V1Frame{
 		Type: pbSharing.V1Frame_PAIRED_KEY_ENCRYPTION.Enum(),
 		PairedKeyEncryption: &pbSharing.PairedKeyEncryptionFrame{
 			SecretIdHash: secretIDHash,

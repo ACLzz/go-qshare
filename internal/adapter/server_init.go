@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	"crypto/ecdsa"
@@ -45,9 +45,47 @@ func (a *Adapter) SendServerInit() error {
 	}
 
 	// send message
-	err = a.WriteUKEYMessage(pbSecuregcm.Ukey2Message_SERVER_INIT, serverInitMsg)
+	err = a.writeUKEYMessage(pbSecuregcm.Ukey2Message_SERVER_INIT, serverInitMsg)
 	if err != nil {
 		return fmt.Errorf("write ukey message: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Adapter) ValidateServerInit(msg []byte) error {
+	// unmarshal server init message
+	var ukeyMessage pbSecuregcm.Ukey2Message
+	if err := proto.Unmarshal(msg, &ukeyMessage); err != nil {
+		return fmt.Errorf("unmarshal ukey message: %w", err)
+	}
+
+	if ukeyMessage.GetMessageType() != pbSecuregcm.Ukey2Message_SERVER_INIT {
+		return ErrInvalidMessage
+	}
+
+	var serverInit pbSecuregcm.Ukey2ServerInit
+	if err := proto.Unmarshal(ukeyMessage.GetMessageData(), &serverInit); err != nil {
+		return fmt.Errorf("unmarshal server init: %w", err)
+	}
+
+	// validate
+	if serverInit.GetHandshakeCipher() != targetCipher {
+		return ErrInvalidMessage
+	}
+
+	// unmarshal public key
+	var publicKey pbSecureMessage.GenericPublicKey
+	if err := proto.Unmarshal(serverInit.GetPublicKey(), &publicKey); err != nil {
+		return fmt.Errorf("unmarshal public key: %w", err)
+	}
+	if publicKey.GetEcP256PublicKey() == nil {
+		return ErrInvalidMessage
+	}
+
+	// add public key to cipher
+	if err := a.cipher.SetSenderPublicKey(publicKey.GetEcP256PublicKey()); err != nil {
+		return fmt.Errorf("add sender public key: %w", err)
 	}
 
 	return nil

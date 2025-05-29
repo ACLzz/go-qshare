@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	qshare "github.com/ACLzz/go-qshare"
-	"github.com/ACLzz/go-qshare/internal/comm"
+	"github.com/ACLzz/go-qshare/internal/adapter"
 	"github.com/ACLzz/go-qshare/internal/crypt"
 	"github.com/ACLzz/go-qshare/log"
 )
@@ -16,7 +16,7 @@ type Connection struct {
 	cipher  *crypt.Cipher
 	conn    net.Conn
 	log     log.Logger
-	adapter comm.Adapter
+	adapter adapter.Adapter
 	wg      *sync.WaitGroup
 	cfg     Config
 }
@@ -34,7 +34,7 @@ func NewConnection(conn net.Conn, logger log.Logger, cfg Config, wg *sync.WaitGr
 		cipher:  &cipher,
 		conn:    conn,
 		log:     logger,
-		adapter: comm.NewAdapter(conn, logger, &cipher, nil, nil),
+		adapter: adapter.New(conn, logger, &cipher, nil, nil),
 		wg:      wg,
 		cfg:     cfg,
 	}
@@ -63,8 +63,8 @@ func (c *Connection) SetupTransfer(ctx context.Context) error {
 		return fmt.Errorf("send connection request: %w", err)
 	}
 
-	if err = c.adapter.SendClientInit(); err != nil {
-		return fmt.Errorf("send client init: %w", err)
+	if err = c.adapter.SendClientInitWithClientFinished(); err != nil {
+		return fmt.Errorf("send client init with client finished: %w", err)
 	}
 
 	msg, err := read()

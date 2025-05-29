@@ -7,6 +7,7 @@ import (
 	"time"
 
 	qshare "github.com/ACLzz/go-qshare"
+	"github.com/ACLzz/go-qshare/internal/mdns"
 	qserver "github.com/ACLzz/go-qshare/server"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/grandcat/zeroconf"
@@ -57,7 +58,7 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, err)
 
 		entriesCh := make(chan *zeroconf.ServiceEntry, 2)
-		require.NoError(t, resolv.Browse(context.Background(), comm.MDNsServiceType, "local.", entriesCh))
+		require.NoError(t, resolv.Browse(context.Background(), mdns.MDNsServiceType, "local.", entriesCh))
 
 		select {
 		case <-entriesCh:
@@ -91,7 +92,7 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, err)
 
 		entriesCh := make(chan *zeroconf.ServiceEntry, 2)
-		require.NoError(t, resolv.Browse(context.Background(), qserver.MDNsServiceType, "local.", entriesCh))
+		require.NoError(t, resolv.Browse(context.Background(), mdns.MDNsServiceType, "local.", entriesCh))
 
 		select {
 		case <-entriesCh:

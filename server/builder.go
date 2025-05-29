@@ -8,8 +8,8 @@ import (
 	"os"
 
 	qshare "github.com/ACLzz/go-qshare"
+	"github.com/ACLzz/go-qshare/internal/adapter"
 	"github.com/ACLzz/go-qshare/internal/ble"
-	"github.com/ACLzz/go-qshare/internal/comm"
 	"github.com/ACLzz/go-qshare/internal/crypt"
 	internalLog "github.com/ACLzz/go-qshare/internal/log"
 	"github.com/ACLzz/go-qshare/log"
@@ -98,7 +98,7 @@ func (b *serverBuilder) Build(
 		return nil, fmt.Errorf("create listener: %w", err)
 	}
 
-	txtBytes, err := comm.CraftEndpointInfo(b.hostname, b.device)
+	txtBytes, err := adapter.CraftEndpointInfo(b.hostname, b.device)
 	if err != nil {
 		return nil, fmt.Errorf("craft endpoint info: %w", err)
 	}

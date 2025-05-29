@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
@@ -48,7 +48,7 @@ func (a *Adapter) sendKeepAliveMessage() {
 	if a.isEncrypted {
 		err = a.encryptAndWrite(&keepAliveFrame)
 	} else {
-		err = a.WriteOfflineFrame(&keepAliveFrame)
+		err = a.writeOfflineFrame(&keepAliveFrame)
 	}
 	if err != nil {
 		a.log.Error("send keep alive message", err)

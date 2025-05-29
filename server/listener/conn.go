@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	qshare "github.com/ACLzz/go-qshare"
-	adapter "github.com/ACLzz/go-qshare/internal/comm"
+	adapter "github.com/ACLzz/go-qshare/internal/adapter"
 	"github.com/ACLzz/go-qshare/internal/crypt"
 	"github.com/ACLzz/go-qshare/log"
 )
@@ -50,7 +50,7 @@ func newConnection(
 		textCallback:        textCallback,
 		fileCallback:        fileCallback,
 	}
-	c.adapter = adapter.NewAdapter(conn, logger, &cipher, c.writeFileChunk, c.writeText)
+	c.adapter = adapter.New(conn, logger, &cipher, c.writeFileChunk, c.writeText)
 
 	return c
 }

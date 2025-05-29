@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
 

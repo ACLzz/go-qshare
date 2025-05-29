@@ -3,7 +3,7 @@ package listener
 import (
 	"errors"
 
-	adapter "github.com/ACLzz/go-qshare/internal/comm"
+	adapter "github.com/ACLzz/go-qshare/internal/adapter"
 )
 
 func (c *connection) route(msg []byte) {

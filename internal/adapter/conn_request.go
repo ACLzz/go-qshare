@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	"fmt"
@@ -34,7 +34,7 @@ func (a *Adapter) SendConnRequest(endpointID, hostname string, device qshare.Dev
 		return fmt.Errorf("craft endpoint info: %w", err)
 	}
 
-	return a.WriteOfflineFrame(&pbConnections.V1Frame{
+	return a.writeOfflineFrame(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_CONNECTION_REQUEST.Enum(),
 		ConnectionRequest: &pbConnections.ConnectionRequestFrame{
 			EndpointId:   proto.String(endpointID),

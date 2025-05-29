@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	"net"
@@ -22,7 +22,7 @@ type Adapter struct {
 }
 
 // TODO: remove cipher from arguments and manage it internally
-func NewAdapter(
+func New(
 	conn net.Conn,
 	logger log.Logger,
 	cipher *crypt.Cipher,
@@ -52,7 +52,7 @@ func (a *Adapter) EnableTransferHandler() {
 }
 
 func (a *Adapter) Disconnect() {
-	if err := a.WriteOfflineFrame(&pbConnections.V1Frame{
+	if err := a.writeOfflineFrame(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_DISCONNECTION.Enum(),
 		Disconnection: &pbConnections.DisconnectionFrame{
 			AckSafeToDisconnect: proto.Bool(true),

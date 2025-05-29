@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	"crypto/sha512"
@@ -47,29 +47,13 @@ func (a *Adapter) ValidateClientInit(msg []byte) error {
 	return nil
 }
 
-func (a *Adapter) SendClientInit() error {
-	// generate private-public key pair
-	privateKey, publicKey, err := generatePrivatePublicKeys()
+func (a *Adapter) SendClientInitWithClientFinished() error {
+	// prepare client finish
+	clientFinished, err := a.marshalClientFinished()
 	if err != nil {
-		return fmt.Errorf("generate private public key pair: %w", err)
+		return fmt.Errorf("mrshal client finished: %w", err)
 	}
-	_ = privateKey // TODO: return from function or preserve in some other way
-
-	// prepare commitment
-	clientFinish, err := proto.Marshal(&pbSecuregcm.Ukey2ClientFinished{
-		PublicKey: publicKey,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal client finished for commitment: %w", err)
-	}
-	clientFinishMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
-		MessageType: pbSecuregcm.Ukey2Message_CLIENT_FINISH.Enum(),
-		MessageData: clientFinish,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal client finished message for commitment: %w", err)
-	}
-	commitment := sha512.Sum512(clientFinishMsg)
+	commitment := sha512.Sum512(clientFinished)
 
 	// prepare client init
 	random, err := crypt.RandomBytes(32)
@@ -91,9 +75,15 @@ func (a *Adapter) SendClientInit() error {
 		return fmt.Errorf("marshal client init: %w", err)
 	}
 
-	if err := a.WriteUKEYMessage(pbSecuregcm.Ukey2Message_CLIENT_INIT, clientInit); err != nil {
-		return fmt.Errorf("write ukey message: %w", err)
+	// send messages
+	if err := a.writeUKEYMessage(pbSecuregcm.Ukey2Message_CLIENT_INIT, clientInit); err != nil {
+		return fmt.Errorf("write client init message: %w", err)
 	}
+
+	if err := a.writeUKEYMessage(pbSecuregcm.Ukey2Message_CLIENT_FINISH, clientFinished); err != nil {
+		return fmt.Errorf("write client finished message: %w", err)
+	}
+	// TODO: add required data to cipher
 
 	return nil
 }

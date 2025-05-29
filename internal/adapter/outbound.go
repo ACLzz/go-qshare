@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import (
 	"encoding/binary"
@@ -25,7 +25,7 @@ func (a *Adapter) writeMessage(data []byte) error {
 	return nil
 }
 
-func (a *Adapter) WriteOfflineFrame(frame *pbConnections.V1Frame) error {
+func (a *Adapter) writeOfflineFrame(frame *pbConnections.V1Frame) error {
 	offlineFrame, err := proto.Marshal(&pbConnections.OfflineFrame{
 		Version: pbConnections.OfflineFrame_V1.Enum(),
 		V1:      frame,
@@ -41,7 +41,7 @@ func (a *Adapter) WriteOfflineFrame(frame *pbConnections.V1Frame) error {
 	return nil
 }
 
-func (a *Adapter) WriteUKEYMessage(t pbSecuregcm.Ukey2Message_Type, msg []byte) error {
+func (a *Adapter) writeUKEYMessage(t pbSecuregcm.Ukey2Message_Type, msg []byte) error {
 	ukeyMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
 		MessageType: t.Enum(),
 		MessageData: msg,
@@ -57,7 +57,7 @@ func (a *Adapter) WriteUKEYMessage(t pbSecuregcm.Ukey2Message_Type, msg []byte) 
 	return nil
 }
 
-func (a *Adapter) WriteSecureFrame(frame *pbSharing.V1Frame) error {
+func (a *Adapter) writeSecureFrame(frame *pbSharing.V1Frame) error {
 	data, err := proto.Marshal(&pbSharing.Frame{
 		Version: pbSharing.Frame_V1.Enum(),
 		V1:      frame,
@@ -112,22 +112,6 @@ func (a *Adapter) WriteSecureFrame(frame *pbSharing.V1Frame) error {
 	return nil
 }
 
-func (a *Adapter) SendBadMessageError() {
-	alertMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Alert{
-		Type:         pbSecuregcm.Ukey2Alert_BAD_MESSAGE.Enum(),
-		ErrorMessage: proto.String(ErrInvalidMessage.Error()),
-	})
-	if err != nil {
-		a.log.Error("marshal alert message", err)
-		return
-	}
-
-	if err := a.WriteUKEYMessage(pbSecuregcm.Ukey2Message_ALERT, alertMsg); err != nil {
-		a.log.Error("send bad message error", err)
-		return
-	}
-}
-
 func (a *Adapter) encryptAndWrite(frame *pbConnections.V1Frame) error {
 	offlineFrame, err := proto.Marshal(&pbConnections.OfflineFrame{
 		Version: pbConnections.OfflineFrame_V1.Enum(),
@@ -164,4 +148,20 @@ func (a *Adapter) encryptAndWrite(frame *pbConnections.V1Frame) error {
 	}
 
 	return nil
+}
+
+func (a *Adapter) SendBadMessageError() {
+	alertMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Alert{
+		Type:         pbSecuregcm.Ukey2Alert_BAD_MESSAGE.Enum(),
+		ErrorMessage: proto.String(ErrInvalidMessage.Error()),
+	})
+	if err != nil {
+		a.log.Error("marshal alert message", err)
+		return
+	}
+
+	if err := a.writeUKEYMessage(pbSecuregcm.Ukey2Message_ALERT, alertMsg); err != nil {
+		a.log.Error("send bad message error", err)
+		return
+	}
 }

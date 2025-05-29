@@ -1,4 +1,4 @@
-package comm
+package adapter
 
 import "errors"
 

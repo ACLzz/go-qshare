@@ -145,7 +145,7 @@ func TestBuilder(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			builder := NewServerBuilder(clk)
+			builder := NewBuilder(clk)
 			if tt.prepare != nil {
 				tt.prepare(t, builder)
 			}
