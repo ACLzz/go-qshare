@@ -53,14 +53,22 @@ func (c *Client) listServersWorker(ctx context.Context, entriesCh chan *zeroconf
 	}
 }
 
-func (c *Client) SendText(instance ServerInstance, text string) error {
+func (c *Client) SendText(ctx context.Context, instance ServerInstance, text string) error {
 	cn, err := c.newConn(instance)
 	if err != nil {
 		return fmt.Errorf("create connection: %w", err)
 	}
 
-	c.wg.Add(1)
-	go cn.SendText(text)
+	if err := cn.SetupTransfer(ctx); err != nil {
+		return fmt.Errorf("setup transfer: %w", err)
+	}
+
+	// if err := cn.SendText(ctx, text); err != nil {
+	// 	return fmt.Errorf("send text: %w", err)
+	// }
+
+	// c.wg.Add(1)
+	// go cn.SendText(ctx, text)
 	return nil
 }
 

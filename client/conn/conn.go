@@ -1,6 +1,7 @@
 package conn
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
@@ -39,9 +40,22 @@ func NewConnection(conn net.Conn, logger log.Logger, cfg Config, wg *sync.WaitGr
 	}
 }
 
-func (c *Connection) SendText(text string) error {
+func (c *Connection) SendText(ctx context.Context, text string) error {
 	defer c.wg.Done()
-	if err := c.adapter.SendConnRequest(
+
+	return nil
+}
+
+func (c *Connection) SendFiles() error {
+	defer c.wg.Done()
+	return nil
+}
+
+func (c *Connection) SetupTransfer(ctx context.Context) error {
+	var err error
+	read := c.adapter.Reader(ctx)
+
+	if err = c.adapter.SendConnRequest(
 		c.cfg.Hostname,
 		c.cfg.EndpointID,
 		c.cfg.DeviceType,
@@ -49,10 +63,16 @@ func (c *Connection) SendText(text string) error {
 		return fmt.Errorf("send connection request: %w", err)
 	}
 
-	return nil
-}
+	if err = c.adapter.SendClientInit(); err != nil {
+		return fmt.Errorf("send client init: %w", err)
+	}
 
-func (c *Connection) SendFiles() error {
-	defer c.wg.Done()
+	msg, err := read()
+	if err != nil {
+		return err
+	}
+	_ = msg
+
+	c.log.Debug("transfer set up", "lastMsgLength", len(msg))
 	return nil
 }
