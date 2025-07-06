@@ -54,14 +54,17 @@ func (c *Connection) SendText(ctx context.Context, text string) error {
 	} else {
 		title = text
 	}
+	textPayloadID := rand.Int64()
 
-	if err := c.adapter.SendIntroduction(adapter.IntroductionFrame{
-		Text: &qshare.TextPayload{
-			Type:  qshare.TextText,
-			Title: title,
-			Size:  int64(len(text)),
-		},
-	}); err != nil {
+	if err := c.adapter.SendIntroduction(
+		adapter.IntroductionFrame{
+			Text: adapter.NewTextPayload(
+				textPayloadID,
+				qshare.TextText,
+				title,
+				int64(len(text)),
+			),
+		}); err != nil {
 		return fmt.Errorf("send introduction message: %w", err)
 	}
 
@@ -89,10 +92,12 @@ func (c *Connection) SendText(ctx context.Context, text string) error {
 	c.log.Debug("server accepted transfer")
 
 	// send random data
-	c.adapter.SendDataInChunks(rand.Int64(), []byte("random shit"))
+	if err := c.adapter.SendDataInChunks(rand.Int64(), []byte("random")); err != nil {
+		return fmt.Errorf("send random data: %w", err)
+	}
 
 	// send text
-	if err := c.adapter.SendDataInChunks(rand.Int64(), []byte(text)); err != nil {
+	if err := c.adapter.SendDataInChunks(textPayloadID, []byte(text)); err != nil {
 		return fmt.Errorf("send data in chunks")
 	}
 

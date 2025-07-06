@@ -40,14 +40,15 @@ func (b *clientBuilder) WithLogger(logger log.Logger) *clientBuilder {
 	return b
 }
 
-func (b *clientBuilder) Build() (*Client, error) {
+func (b *clientBuilder) Build(adEndpointID string) (*Client, error) {
 	if err := b.propagateDefaultValues(); err != nil {
 		return nil, fmt.Errorf("propagate default values: %w", err)
 	}
 
 	return &Client{
-		wg:  &sync.WaitGroup{},
-		log: b.logger,
+		wg:         &sync.WaitGroup{},
+		log:        b.logger,
+		endpointID: adEndpointID,
 	}, nil
 }
 

@@ -68,7 +68,7 @@ func (c *connection) writeText(text string) error {
 		return ErrTextTransferNotExpected
 	}
 
-	c.textCallback(*c.textPayload, text)
+	c.textCallback(c.textPayload.TextPayload, text)
 	c.receivedPayloads++
 	c.checkIfLastPayload()
 	return nil

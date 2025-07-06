@@ -23,7 +23,7 @@ type connection struct {
 	nextExpectedMessage expectedMessage
 	phase               phase
 
-	textPayload      *qshare.TextPayload // text payload can be sent only one
+	textPayload      *adapter.TextPayload // text payload can be sent only one
 	filePayloads     map[int64]*adapter.FilePayload
 	expectedPayloads int
 	receivedPayloads int

@@ -11,7 +11,7 @@ import (
 )
 
 type IntroductionFrame struct {
-	Text  *qshare.TextPayload
+	Text  *TextPayload
 	Files map[int64]*FilePayload // TODO: should it be map of pointers?
 }
 
@@ -83,7 +83,7 @@ func (a *Adapter) SendIntroduction(frame IntroductionFrame) error {
 			{
 				TextTitle: proto.String(frame.Text.Title),
 				Type:      textType.Enum(),
-				PayloadId: proto.Int64(rand.Int64()),
+				PayloadId: proto.Int64(frame.Text.ID),
 				Size:      proto.Int64(frame.Text.Size),
 				Id:        proto.Int64(rand.Int64()),
 			},
@@ -122,7 +122,23 @@ func newFilePayload(t qshare.FileType, title, mimeType string, payloadID, size i
 	}
 }
 
-func mapTextPayload(payloads []*pbSharing.TextMetadata) *qshare.TextPayload {
+type TextPayload struct {
+	qshare.TextPayload
+	ID int64
+}
+
+func NewTextPayload(ID int64, t qshare.TextType, title string, size int64) *TextPayload {
+	return &TextPayload{
+		TextPayload: qshare.TextPayload{
+			Type:  t,
+			Title: title,
+			Size:  size,
+		},
+		ID: ID,
+	}
+}
+
+func mapTextPayload(payloads []*pbSharing.TextMetadata) *TextPayload {
 	if len(payloads) == 0 {
 		return nil
 	}
@@ -141,10 +157,13 @@ func mapTextPayload(payloads []*pbSharing.TextMetadata) *qshare.TextPayload {
 		textType = qshare.TextUnknown
 	}
 
-	return &qshare.TextPayload{
-		Type:  textType,
-		Title: payloads[0].GetTextTitle(),
-		Size:  payloads[0].GetSize(),
+	return &TextPayload{
+		TextPayload: qshare.TextPayload{
+			Type:  textType,
+			Title: payloads[0].GetTextTitle(),
+			Size:  payloads[0].GetSize(),
+		},
+		ID: *payloads[0].PayloadId,
 	}
 }
 

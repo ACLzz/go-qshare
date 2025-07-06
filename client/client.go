@@ -16,8 +16,9 @@ import (
 const default_output_channel_size = 64
 
 type Client struct {
-	wg  *sync.WaitGroup // TODO: review if we need it at all
-	log log.Logger
+	wg         *sync.WaitGroup // TODO: review if we need it at all
+	log        log.Logger
+	endpointID string // mdns endpoint id
 }
 
 func (c *Client) ListServers(ctx context.Context) (chan ServerInstance, error) {
@@ -96,7 +97,7 @@ func (c *Client) newConn(instance ServerInstance) (conn.Connection, error) {
 	}
 
 	return conn.NewConnection(cn, c.log, conn.Config{
-		EndpointID: instance.endpoint,
+		EndpointID: c.endpointID,
 		Hostname:   instance.Hostname,
 	}, c.wg), nil
 }
