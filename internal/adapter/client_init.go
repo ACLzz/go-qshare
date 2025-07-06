@@ -60,7 +60,7 @@ func (a *Adapter) SendClientInitWithClientFinished() error {
 	if err != nil {
 		return fmt.Errorf("generate random bytes: %w", err)
 	}
-	clientInit, err := proto.Marshal(&pbSecuregcm.Ukey2ClientInit{
+	clientInitMessage, err := proto.Marshal(&pbSecuregcm.Ukey2ClientInit{
 		Version: proto.Int32(1),
 		Random:  random,
 		CipherCommitments: []*pbSecuregcm.Ukey2ClientInit_CipherCommitment{
@@ -74,16 +74,26 @@ func (a *Adapter) SendClientInitWithClientFinished() error {
 	if err != nil {
 		return fmt.Errorf("marshal client init: %w", err)
 	}
+	clientInit, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
+		MessageType: pbSecuregcm.Ukey2Message_CLIENT_INIT.Enum(),
+		MessageData: clientInitMessage,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal client init ukey message")
+	}
 
 	// send messages
-	if err := a.writeUKEYMessage(pbSecuregcm.Ukey2Message_CLIENT_INIT, clientInit); err != nil {
+	if err := a.writeMessage(clientInit); err != nil {
 		return fmt.Errorf("write client init message: %w", err)
 	}
-
-	if err := a.writeUKEYMessage(pbSecuregcm.Ukey2Message_CLIENT_FINISH, clientFinished); err != nil {
+	if err := a.writeMessage(clientFinished); err != nil {
 		return fmt.Errorf("write client finished message: %w", err)
 	}
-	// TODO: add required data to cipher
+
+	// add client init message to cipher
+	if err := a.cipher.SetReceiverInitMessage(clientInit); err != nil {
+		return fmt.Errorf("set receiver init message: %w", err)
+	}
 
 	return nil
 }

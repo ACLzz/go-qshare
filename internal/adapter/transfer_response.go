@@ -1,6 +1,21 @@
 package adapter
 
-import pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+import (
+	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+)
+
+func (a *Adapter) UnmarshalTransferResponse(msg []byte) (bool, error) {
+	frame, err := unmarshalSharingFrame(msg)
+	if err != nil {
+		return false, err
+	}
+
+	if frame.GetType() != pbSharing.V1Frame_RESPONSE || frame.GetConnectionResponse() == nil {
+		return false, ErrInvalidMessage
+	}
+
+	return frame.GetConnectionResponse().GetStatus() == pbSharing.ConnectionResponseFrame_ACCEPT, nil
+}
 
 func (a *Adapter) SendTransferResponse(isAccepted bool) error {
 	status := pbSharing.ConnectionResponseFrame_REJECT

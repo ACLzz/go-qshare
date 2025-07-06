@@ -16,3 +16,12 @@ func (a *Adapter) ValidateTransferRequest(msg []byte) error {
 
 	return nil
 }
+
+func (a *Adapter) SendTransferRequest() error {
+	return a.writeSecureFrame(&pbSharing.V1Frame{
+		Type: pbSharing.V1Frame_RESPONSE.Enum(),
+		ConnectionResponse: &pbSharing.ConnectionResponseFrame{
+			Status: pbSharing.ConnectionResponseFrame_ACCEPT.Enum(),
+		},
+	})
+}

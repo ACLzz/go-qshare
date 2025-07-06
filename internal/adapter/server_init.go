@@ -40,7 +40,14 @@ func (a *Adapter) SendServerInit() error {
 	if err = a.cipher.SetReceiverPrivateKey(privateKey); err != nil {
 		return fmt.Errorf("add receiver private key: %w", err)
 	}
-	if err = a.cipher.SetReceiverInitMessage(serverInitMsg); err != nil {
+	serverInit, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
+		MessageType: pbSecuregcm.Ukey2Message_SERVER_INIT.Enum(),
+		MessageData: serverInitMsg,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal message: %w", err)
+	}
+	if err = a.cipher.SetReceiverInitMessage(serverInit); err != nil {
 		return fmt.Errorf("add receiver init message: %w", err)
 	}
 
@@ -83,8 +90,11 @@ func (a *Adapter) ValidateServerInit(msg []byte) error {
 		return ErrInvalidMessage
 	}
 
-	// add public key to cipher
+	// add acquired data to cipher
 	if err := a.cipher.SetSenderPublicKey(publicKey.GetEcP256PublicKey()); err != nil {
+		return fmt.Errorf("add sender public key: %w", err)
+	}
+	if err := a.cipher.SetSenderInitMessage(msg); err != nil {
 		return fmt.Errorf("add sender public key: %w", err)
 	}
 

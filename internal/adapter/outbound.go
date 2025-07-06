@@ -66,50 +66,7 @@ func (a *Adapter) writeSecureFrame(frame *pbSharing.V1Frame) error {
 		return fmt.Errorf("marshal secure frame: %w", err)
 	}
 
-	messageID := rand.Int64()
-	// message
-	if err = a.encryptAndWrite(&pbConnections.V1Frame{
-		Type: pbConnections.V1Frame_PAYLOAD_TRANSFER.Enum(),
-		PayloadTransfer: &pbConnections.PayloadTransferFrame{
-			PacketType: pbConnections.PayloadTransferFrame_DATA.Enum(),
-			PayloadChunk: &pbConnections.PayloadTransferFrame_PayloadChunk{
-				Offset: proto.Int64(0),
-				Flags:  proto.Int32(0),
-				Body:   data,
-			},
-			PayloadHeader: &pbConnections.PayloadTransferFrame_PayloadHeader{
-				Id:          proto.Int64(messageID),
-				Type:        pbConnections.PayloadTransferFrame_PayloadHeader_BYTES.Enum(),
-				TotalSize:   proto.Int64(int64(len(data))),
-				IsSensitive: proto.Bool(false),
-			},
-		},
-	}); err != nil {
-		return fmt.Errorf("encrypt and write message: %w", err)
-	}
-
-	// last chunk
-	if err = a.encryptAndWrite(&pbConnections.V1Frame{
-		Type: pbConnections.V1Frame_PAYLOAD_TRANSFER.Enum(),
-		PayloadTransfer: &pbConnections.PayloadTransferFrame{
-			PacketType: pbConnections.PayloadTransferFrame_DATA.Enum(),
-			PayloadChunk: &pbConnections.PayloadTransferFrame_PayloadChunk{
-				Offset: proto.Int64(int64(len(data))),
-				Flags:  proto.Int32(1),
-				Body:   []byte{},
-			},
-			PayloadHeader: &pbConnections.PayloadTransferFrame_PayloadHeader{
-				Id:          proto.Int64(messageID),
-				Type:        pbConnections.PayloadTransferFrame_PayloadHeader_BYTES.Enum(),
-				TotalSize:   proto.Int64(int64(len(data))),
-				IsSensitive: proto.Bool(false),
-			},
-		},
-	}); err != nil {
-		return fmt.Errorf("encrypt and write last chunk: %w", err)
-	}
-
-	return nil
+	return a.SendDataInChunks(rand.Int64(), data)
 }
 
 func (a *Adapter) encryptAndWrite(frame *pbConnections.V1Frame) error {
@@ -164,4 +121,50 @@ func (a *Adapter) SendBadMessageError() {
 		a.log.Error("send bad message error", err)
 		return
 	}
+}
+
+func (a *Adapter) SendDataInChunks(payloadID int64, data []byte) error {
+	// message
+	if err := a.encryptAndWrite(&pbConnections.V1Frame{
+		Type: pbConnections.V1Frame_PAYLOAD_TRANSFER.Enum(),
+		PayloadTransfer: &pbConnections.PayloadTransferFrame{
+			PacketType: pbConnections.PayloadTransferFrame_DATA.Enum(),
+			PayloadChunk: &pbConnections.PayloadTransferFrame_PayloadChunk{
+				Offset: proto.Int64(0),
+				Flags:  proto.Int32(0),
+				Body:   data,
+			},
+			PayloadHeader: &pbConnections.PayloadTransferFrame_PayloadHeader{
+				Id:          proto.Int64(payloadID),
+				Type:        pbConnections.PayloadTransferFrame_PayloadHeader_BYTES.Enum(),
+				TotalSize:   proto.Int64(int64(len(data))),
+				IsSensitive: proto.Bool(false),
+			},
+		},
+	}); err != nil {
+		return fmt.Errorf("encrypt and write message: %w", err)
+	}
+
+	// last chunk
+	if err := a.encryptAndWrite(&pbConnections.V1Frame{
+		Type: pbConnections.V1Frame_PAYLOAD_TRANSFER.Enum(),
+		PayloadTransfer: &pbConnections.PayloadTransferFrame{
+			PacketType: pbConnections.PayloadTransferFrame_DATA.Enum(),
+			PayloadChunk: &pbConnections.PayloadTransferFrame_PayloadChunk{
+				Offset: proto.Int64(int64(len(data))),
+				Flags:  proto.Int32(1),
+				Body:   []byte{},
+			},
+			PayloadHeader: &pbConnections.PayloadTransferFrame_PayloadHeader{
+				Id:          proto.Int64(payloadID),
+				Type:        pbConnections.PayloadTransferFrame_PayloadHeader_BYTES.Enum(),
+				TotalSize:   proto.Int64(int64(len(data))),
+				IsSensitive: proto.Bool(false),
+			},
+		},
+	}); err != nil {
+		return fmt.Errorf("encrypt and write last chunk: %w", err)
+	}
+
+	return nil
 }

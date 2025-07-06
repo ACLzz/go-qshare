@@ -39,6 +39,7 @@ func (s *Server) Listen() error {
 
 func (s *Server) listen() error {
 	var err error
+	fmt.Println(s.conf.txt)
 	s.mDNSServer, err = zeroconf.Register(
 		s.conf.name,
 		mdns.MDNsServiceType,

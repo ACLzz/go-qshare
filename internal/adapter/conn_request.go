@@ -37,8 +37,9 @@ func (a *Adapter) SendConnRequest(endpointID, hostname string, device qshare.Dev
 	return a.writeOfflineFrame(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_CONNECTION_REQUEST.Enum(),
 		ConnectionRequest: &pbConnections.ConnectionRequestFrame{
-			EndpointId:   proto.String(endpointID),
-			EndpointName: []byte(hostname + ".local"),
+			EndpointId: proto.String(endpointID),
+			// EndpointName: []byte(hostname + ".local"), // TODO: should we remove it?
+			EndpointName: []byte(hostname),
 			EndpointInfo: endpointInfo,
 			Mediums:      []pbConnections.ConnectionRequestFrame_Medium{pbConnections.ConnectionRequestFrame_WIFI_LAN},
 		},

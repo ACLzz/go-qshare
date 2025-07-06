@@ -4,7 +4,6 @@ import (
 	"runtime"
 
 	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
-	"google.golang.org/protobuf/proto"
 )
 
 type ConnResponse struct {
@@ -46,7 +45,7 @@ func (a *Adapter) SendConnResponse(isAccepted bool) error {
 		Type: pbConnections.V1Frame_CONNECTION_RESPONSE.Enum(),
 		ConnectionResponse: &pbConnections.ConnectionResponseFrame{
 			Response: response.Enum(),
-			Status:   proto.Int32(0),
+			// Status:   proto.Int32(0), // TODO: delete
 			OsInfo: &pbConnections.OsInfo{
 				Type: osType.Enum(),
 			},

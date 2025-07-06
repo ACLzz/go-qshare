@@ -14,9 +14,7 @@ import (
 	"hash"
 	"math/big"
 
-	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
 	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
-	"google.golang.org/protobuf/proto"
 )
 
 /*
@@ -67,15 +65,7 @@ func (c *Cipher) SetReceiverInitMessage(msg []byte) error {
 		return ErrInvalidReceiverInitMessage
 	}
 
-	ukeyMsg, err := proto.Marshal(&pbSecuregcm.Ukey2Message{
-		MessageType: pbSecuregcm.Ukey2Message_SERVER_INIT.Enum(),
-		MessageData: msg,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal message: %w", err)
-	}
-
-	c.receiverInitMsg = ukeyMsg
+	c.receiverInitMsg = msg
 	return nil
 }
 
@@ -118,37 +108,62 @@ func (c *Cipher) validate() bool {
 	return len(c.senderInitMsg) > 0 && len(c.receiverInitMsg) > 0 && c.receiverPrivateKey != nil && c.senderPublicKey != nil
 }
 
+func (c *Cipher) craftD2DKeys() ([]byte, []byte, error) {
+	// derive secret hash
+	secret, err := c.receiverPrivateKey.ECDH(c.senderPublicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get dh secret: %w", err)
+	}
+	secretHash := sha256.Sum256(secret)
+
+	// derive connection hash
+	var senderInfo, receiverInfo string
+	var connSecret []byte
+	if c.isServer {
+		senderInfo, receiverInfo = "client", "server"
+		ukeyInfo := make([]byte, len(c.receiverInitMsg)+len(c.senderInitMsg))
+		copy(ukeyInfo, c.senderInitMsg)
+		copy(ukeyInfo[len(c.senderInitMsg):], c.receiverInitMsg)
+
+		connSecret, err = hkdfExtractExpand(secretHash[:], []byte(secretLabel), string(ukeyInfo))
+		if err != nil {
+			return nil, nil, fmt.Errorf("generate connection secret: %w", err)
+		}
+	} else {
+		senderInfo, receiverInfo = "server", "client"
+		ukeyInfo := make([]byte, len(c.receiverInitMsg)+len(c.senderInitMsg))
+		copy(ukeyInfo, c.receiverInitMsg)
+		copy(ukeyInfo[len(c.receiverInitMsg):], c.senderInitMsg)
+
+		connSecret, err = hkdfExtractExpand(secretHash[:], []byte(secretLabel), string(ukeyInfo))
+		if err != nil {
+			return nil, nil, fmt.Errorf("generate connection secret: %w", err)
+		}
+	}
+
+	// derive device to device keys
+	d2dSenderKey, err := hkdfExtractExpand(connSecret, d2dSalt, senderInfo)
+	if err != nil {
+		return nil, nil, fmt.Errorf("derive d2d sender key: %w", err)
+	}
+
+	d2dReceiverKey, err := hkdfExtractExpand(connSecret, d2dSalt, receiverInfo)
+	if err != nil {
+		return nil, nil, fmt.Errorf("derive d2d receiver key: %w", err)
+	}
+
+	return d2dReceiverKey, d2dSenderKey, nil
+}
+
 func (c *Cipher) Setup() error {
 	if !c.validate() {
 		return ErrInvalidCipher
 	}
 
-	// derive connection secret
-	secret, err := c.receiverPrivateKey.ECDH(c.senderPublicKey)
+	// craft device to device keys
+	d2dReceiverKey, d2dSenderKey, err := c.craftD2DKeys()
 	if err != nil {
-		return fmt.Errorf("get dh secret: %w", err)
-	}
-	secretHash := sha256.Sum256(secret)
-
-	ukeyInfo := make([]byte, len(c.receiverInitMsg)+len(c.senderInitMsg))
-	copy(ukeyInfo, c.senderInitMsg)
-	copy(ukeyInfo[len(c.senderInitMsg):], c.receiverInitMsg)
-
-	connSecret, err := hkdfExtractExpand(secretHash[:], []byte(secretLabel), string(ukeyInfo))
-	if err != nil {
-		return fmt.Errorf("generate connection secret: %w", err)
-	}
-
-	// derive device to device keys
-	senderInfo, receiverInfo := mapSenderReceiverInfo(c.isServer)
-	d2dSenderKey, err := hkdfExtractExpand(connSecret, d2dSalt, senderInfo)
-	if err != nil {
-		return fmt.Errorf("derive d2d sender key: %w", err)
-	}
-
-	d2dReceiverKey, err := hkdfExtractExpand(connSecret, d2dSalt, receiverInfo)
-	if err != nil {
-		return fmt.Errorf("derive d2d receiver key: %w", err)
+		return fmt.Errorf("craft d2d keys: %w", err)
 	}
 
 	// derive HMAC keys
@@ -209,13 +224,6 @@ func (c *Cipher) Sign(data []byte) []byte {
 	defer c.receiverHMAC.Reset()
 	c.receiverHMAC.Write(data)
 	return c.receiverHMAC.Sum(nil)
-}
-
-func mapSenderReceiverInfo(isServer bool) (string, string) {
-	if isServer {
-		return "client", "server"
-	}
-	return "server", "client"
 }
 
 func hkdfExtractExpand(key, salt []byte, info string) ([]byte, error) {

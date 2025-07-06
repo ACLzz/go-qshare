@@ -16,7 +16,7 @@ import (
 const default_output_channel_size = 64
 
 type Client struct {
-	wg  *sync.WaitGroup
+	wg  *sync.WaitGroup // TODO: review if we need it at all
 	log log.Logger
 }
 
@@ -63,12 +63,10 @@ func (c *Client) SendText(ctx context.Context, instance ServerInstance, text str
 		return fmt.Errorf("setup transfer: %w", err)
 	}
 
-	// if err := cn.SendText(ctx, text); err != nil {
-	// 	return fmt.Errorf("send text: %w", err)
-	// }
+	if err := cn.SendText(ctx, text); err != nil {
+		return fmt.Errorf("send text: %w", err)
+	}
 
-	// c.wg.Add(1)
-	// go cn.SendText(ctx, text)
 	return nil
 }
 

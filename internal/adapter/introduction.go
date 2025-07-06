@@ -2,9 +2,12 @@ package adapter
 
 import (
 	"io"
+	"math/rand/v2"
 
 	qshare "github.com/ACLzz/go-qshare"
 	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 )
 
 type IntroductionFrame struct {
@@ -41,6 +44,59 @@ func (a *Adapter) UnmarshalIntroduction(msg []byte) (IntroductionFrame, error) {
 		Text:  mapTextPayload(text),
 		Files: mapFilePayloads(files),
 	}, nil
+}
+
+func (a *Adapter) SendIntroduction(frame IntroductionFrame) error {
+	var (
+		textMetadata = make([]*pbSharing.TextMetadata, 0)
+		fileMetadata = make([]*pbSharing.FileMetadata, 0)
+	)
+
+	if len(frame.Files) > 0 {
+		for k := range frame.Files {
+			fileMetadata = append(fileMetadata, &pbSharing.FileMetadata{
+				Name:      proto.String(frame.Files[k].Title),
+				Type:      pbSharing.FileMetadata_UNKNOWN.Enum(),
+				PayloadId: proto.Int64(k),
+				Size:      proto.Int64(frame.Files[k].Size),
+				MimeType:  proto.String(frame.Files[k].MimeType),
+				Id:        proto.Int64(int64(uuid.New().ID())),
+			})
+		}
+	}
+	if frame.Text != nil {
+		var textType pbSharing.TextMetadata_Type
+		switch frame.Text.Type {
+		case qshare.TextText:
+			textType = pbSharing.TextMetadata_TEXT
+		case qshare.TextURL:
+			textType = pbSharing.TextMetadata_URL
+		case qshare.TextAddress:
+			textType = pbSharing.TextMetadata_ADDRESS
+		case qshare.TextPhoneNumber:
+			textType = pbSharing.TextMetadata_PHONE_NUMBER
+		default:
+			textType = pbSharing.TextMetadata_UNKNOWN
+		}
+
+		textMetadata = []*pbSharing.TextMetadata{
+			{
+				TextTitle: proto.String(frame.Text.Title),
+				Type:      textType.Enum(),
+				PayloadId: proto.Int64(rand.Int64()),
+				Size:      proto.Int64(frame.Text.Size),
+				Id:        proto.Int64(rand.Int64()),
+			},
+		}
+	}
+
+	return a.writeSecureFrame(&pbSharing.V1Frame{
+		Type: pbSharing.V1Frame_INTRODUCTION.Enum(),
+		Introduction: &pbSharing.IntroductionFrame{
+			TextMetadata: textMetadata,
+			FileMetadata: fileMetadata,
+		},
+	})
 }
 
 type FilePayload struct {
