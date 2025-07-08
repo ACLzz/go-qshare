@@ -3,8 +3,8 @@ package adapter
 import (
 	"fmt"
 
-	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
-	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
+	pbSecuregcm "github.com/ACLzz/qshare/internal/protobuf/gen/securegcm"
+	pbSecureMessage "github.com/ACLzz/qshare/internal/protobuf/gen/securemessage"
 	"google.golang.org/protobuf/proto"
 )
 

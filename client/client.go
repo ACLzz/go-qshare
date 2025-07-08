@@ -6,10 +6,10 @@ import (
 	"net"
 	"sync"
 
-	qshare "github.com/ACLzz/go-qshare"
-	"github.com/ACLzz/go-qshare/client/conn"
-	"github.com/ACLzz/go-qshare/internal/mdns"
-	"github.com/ACLzz/go-qshare/log"
+	"github.com/ACLzz/qshare"
+	"github.com/ACLzz/qshare/client/conn"
+	"github.com/ACLzz/qshare/internal/mdns"
+	"github.com/ACLzz/qshare/internal/rand"
 	"github.com/grandcat/zeroconf"
 )
 
@@ -17,8 +17,9 @@ const default_output_channel_size = 64
 
 type Client struct {
 	wg         *sync.WaitGroup // TODO: review if we need it at all
-	log        log.Logger
+	log        qshare.Logger
 	endpointID string // mdns endpoint id
+	rand       rand.Random
 }
 
 func (c *Client) ListServers(ctx context.Context) (chan ServerInstance, error) {
@@ -112,5 +113,5 @@ func (c *Client) newConn(instance ServerInstance) (conn.Connection, error) {
 	return conn.NewConnection(cn, c.log, conn.Config{
 		EndpointID: c.endpointID,
 		Hostname:   instance.Hostname,
-	}, c.wg), nil
+	}, c.wg, c.rand), nil
 }

@@ -2,30 +2,28 @@ package client
 
 import (
 	"fmt"
-	"math/rand/v2"
 	"sync"
 
-	qshare "github.com/ACLzz/go-qshare"
-	internalLog "github.com/ACLzz/go-qshare/internal/log"
-	"github.com/ACLzz/go-qshare/log"
+	"github.com/ACLzz/qshare"
+	internalLog "github.com/ACLzz/qshare/internal/log"
+	"github.com/ACLzz/qshare/internal/rand"
 	"tinygo.org/x/bluetooth"
 )
 
 type clientBuilder struct {
-	rand    *rand.Rand
+	rand    rand.Random
 	adapter *bluetooth.Adapter
 	device  qshare.DeviceType
-	logger  log.Logger
+	logger  qshare.Logger
 	// TODO: add hostname
 
 	isLoggerSet     bool
+	isRandomSet     bool
 	isDeviceTypeSet bool
 }
 
-func NewBuilder(clk qshare.Clock) *clientBuilder {
-	return &clientBuilder{
-		rand: rand.New(clk),
-	}
+func NewBuilder() *clientBuilder {
+	return &clientBuilder{}
 }
 
 func (b *clientBuilder) WithDeviceType(device qshare.DeviceType) *clientBuilder {
@@ -34,8 +32,14 @@ func (b *clientBuilder) WithDeviceType(device qshare.DeviceType) *clientBuilder 
 	return b
 }
 
-func (b *clientBuilder) WithLogger(logger log.Logger) *clientBuilder {
+func (b *clientBuilder) WithLogger(logger qshare.Logger) *clientBuilder {
 	b.logger = logger
+	b.isLoggerSet = true
+	return b
+}
+
+func (b *clientBuilder) WithRandom(r rand.Random) *clientBuilder {
+	b.rand = r
 	b.isLoggerSet = true
 	return b
 }
@@ -49,6 +53,7 @@ func (b *clientBuilder) Build(adEndpointID string) (*Client, error) {
 		wg:         &sync.WaitGroup{},
 		log:        b.logger,
 		endpointID: adEndpointID,
+		rand:       b.rand,
 	}, nil
 }
 

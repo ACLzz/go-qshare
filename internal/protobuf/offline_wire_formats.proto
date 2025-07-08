@@ -13,7 +13,7 @@
 // limitations under the License.
 
 syntax = "proto2";
-option go_package = "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections";
+option go_package = "github.com/ACLzz/qshare/internal/protobuf/gen/connections";
 
 package location.nearby.connections;
 

@@ -1,11 +1,11 @@
-package goqshare
+package qshare
 
 import "io"
 
 type DeviceType uint
 
 const (
-	UnknownDevice = iota
+	UnknownDevice DeviceType = iota
 	PhoneDevice
 	TabletDevice
 	LaptopDevice

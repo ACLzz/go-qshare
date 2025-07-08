@@ -3,17 +3,15 @@ package server
 import (
 	"encoding/base64"
 	"fmt"
-	"math/rand/v2"
 	"net"
 	"os"
 
-	qshare "github.com/ACLzz/go-qshare"
-	"github.com/ACLzz/go-qshare/internal/adapter"
-	"github.com/ACLzz/go-qshare/internal/ble"
-	"github.com/ACLzz/go-qshare/internal/crypt"
-	internalLog "github.com/ACLzz/go-qshare/internal/log"
-	"github.com/ACLzz/go-qshare/log"
-	"github.com/ACLzz/go-qshare/server/listener"
+	"github.com/ACLzz/qshare"
+	"github.com/ACLzz/qshare/internal/adapter"
+	"github.com/ACLzz/qshare/internal/ble"
+	internalLog "github.com/ACLzz/qshare/internal/log"
+	"github.com/ACLzz/qshare/internal/rand"
+	"github.com/ACLzz/qshare/server/listener"
 
 	"tinygo.org/x/bluetooth"
 )
@@ -21,14 +19,14 @@ import (
 var alphaNumRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 type serverBuilder struct {
-	rand *rand.Rand
+	rand rand.Random
 
 	hostname string
 	port     int
 	endpoint []byte
 	adapter  *bluetooth.Adapter
 	device   qshare.DeviceType
-	logger   log.Logger
+	logger   qshare.Logger
 
 	isHostnameSet         bool
 	isPortSet             bool
@@ -36,12 +34,11 @@ type serverBuilder struct {
 	isBluetoothAdapterSet bool
 	isDeviceTypeSet       bool
 	isLoggerSet           bool
+	isRandomSet           bool
 }
 
-func NewBuilder(clk qshare.Clock) *serverBuilder {
-	return &serverBuilder{
-		rand: rand.New(clk),
-	}
+func NewBuilder() *serverBuilder {
+	return &serverBuilder{}
 }
 
 func (b *serverBuilder) WithHostname(hostname string) *serverBuilder {
@@ -74,9 +71,15 @@ func (b *serverBuilder) WithDeviceType(device qshare.DeviceType) *serverBuilder 
 	return b
 }
 
-func (b *serverBuilder) WithLogger(logger log.Logger) *serverBuilder {
+func (b *serverBuilder) WithLogger(logger qshare.Logger) *serverBuilder {
 	b.logger = logger
 	b.isLoggerSet = true
+	return b
+}
+
+func (b *serverBuilder) WithRandom(rng rand.Random) *serverBuilder {
+	b.rand = rng
+	b.isRandomSet = true
 	return b
 }
 
@@ -93,12 +96,12 @@ func (b *serverBuilder) Build(
 		return nil, fmt.Errorf("create ble advertisement: %w", err)
 	}
 
-	lisnr, err := listener.New(b.port, b.logger, textCallback, fileCallback)
+	lisnr, err := listener.New(b.port, b.logger, textCallback, fileCallback, b.rand)
 	if err != nil {
 		return nil, fmt.Errorf("create listener: %w", err)
 	}
 
-	txtBytes, err := adapter.CraftEndpointInfo(b.hostname, b.device)
+	txtBytes, err := adapter.CraftEndpointInfo(b.rand, b.hostname, b.device)
 	if err != nil {
 		return nil, fmt.Errorf("craft endpoint info: %w", err)
 	}
@@ -124,6 +127,7 @@ func (b *serverBuilder) propagateDefaultValues() error {
 		b.propEndpoint,
 		b.propDeviceType,
 		b.propLogger,
+		b.propRandom,
 	}
 
 	var err error
@@ -197,12 +201,7 @@ func (b *serverBuilder) propEndpoint() error {
 		return nil
 	}
 
-	var err error
-	b.endpoint, err = crypt.RandomAlphaNum(4)
-	if err != nil {
-		return fmt.Errorf("generate random endpoint: %w", err)
-	}
-
+	b.endpoint = rand.AlphaNum(b.rand, 4)
 	return nil
 }
 
@@ -227,6 +226,15 @@ func (b *serverBuilder) propLogger() error {
 	return nil
 }
 
+func (b *serverBuilder) propRandom() error {
+	if b.isRandomSet {
+		return nil
+	}
+
+	b.rand = rand.NewCrypt()
+	return nil
+}
+
 func newName(endpoint []byte) string {
 	name := make([]byte, 10)
 
@@ -235,19 +243,4 @@ func newName(endpoint []byte) string {
 	copy(name[5:], []byte{0xFC, 0x9F, 0x5E}) // service ID
 
 	return base64.RawURLEncoding.EncodeToString(name)
-}
-
-func newTXT(hostname string, device qshare.DeviceType, r *rand.Rand) string {
-	n := make([]byte, 18+len(hostname))
-	n[0] = byte(device << 1) // set device type and mark service "discoverable"
-
-	for i := range 16 {
-		n[1+i] = byte(r.IntN(256)) // random byte
-	}
-
-	// add hostname length and hostname
-	n[17] = byte(len(hostname))
-	copy(n[18:], []byte(hostname))
-
-	return base64.RawURLEncoding.EncodeToString(n)
 }

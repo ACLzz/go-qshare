@@ -3041,8 +3041,8 @@ const file_offline_wire_formats_proto_rawDesc = "" +
 	"\tCHROME_OS\x10\x02\x12\v\n" +
 	"\aWINDOWS\x10\x03\x12\t\n" +
 	"\x05APPLE\x10\x04\x12\t\n" +
-	"\x05LINUX\x10dB\x8e\x01\n" +
-	",com.google.location.nearby.connections.protoB\x17OfflineWireFormatsProtoH\x03Z<github.com/ACLzz/go-qshare/internal/protobuf/gen/connections\xa2\x02\x04GNCP"
+	"\x05LINUX\x10dB\x8b\x01\n" +
+	",com.google.location.nearby.connections.protoB\x17OfflineWireFormatsProtoH\x03Z9github.com/ACLzz/qshare/internal/protobuf/gen/connections\xa2\x02\x04GNCP"
 
 var (
 	file_offline_wire_formats_proto_rawDescOnce sync.Once

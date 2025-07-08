@@ -2,14 +2,14 @@ package ble
 
 import (
 	"fmt"
-	"math/rand/v2"
 
+	"github.com/ACLzz/qshare/internal/rand"
 	"tinygo.org/x/bluetooth"
 )
 
 var ble_service_data_base = [14]byte{252, 18, 142, 1, 66, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-func NewAdvertisement(adapter *bluetooth.Adapter, rng *rand.Rand) (*bluetooth.Advertisement, error) {
+func NewAdvertisement(adapter *bluetooth.Adapter, rng rand.Random) (*bluetooth.Advertisement, error) {
 	ad := adapter.DefaultAdvertisement()
 	bleUUID := bluetooth.New16BitUUID(0xfe2c)
 

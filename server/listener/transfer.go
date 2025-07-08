@@ -3,8 +3,8 @@ package listener
 import (
 	"fmt"
 
-	qshare "github.com/ACLzz/go-qshare"
-	adapter "github.com/ACLzz/go-qshare/internal/adapter"
+	"github.com/ACLzz/qshare"
+	adapter "github.com/ACLzz/qshare/internal/adapter"
 )
 
 func (c *connection) processIntroduction(msg []byte) error {

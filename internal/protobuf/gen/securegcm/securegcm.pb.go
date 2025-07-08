@@ -1201,8 +1201,8 @@ const file_securegcm_proto_rawDesc = "" +
 	"\x18DEVICE_TO_DEVICE_MESSAGE\x10\r\x12\x1d\n" +
 	"\x19DEVICE_PROXIMITY_CALLBACK\x10\x0e\x12\x1f\n" +
 	"\x1bUNLOCK_KEY_SIGNED_CHALLENGE\x10\x0f\x12\x16\n" +
-	"\x12LOGIN_NOTIFICATION\x10eB\x82\x01\n" +
-	"+com.google.security.cryptauth.lib.securegcmB\x0eSecureGcmProtoH\x03Z:github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm\xa2\x02\x04SGCM"
+	"\x12LOGIN_NOTIFICATION\x10eB\x7f\n" +
+	"+com.google.security.cryptauth.lib.securegcmB\x0eSecureGcmProtoH\x03Z7github.com/ACLzz/qshare/internal/protobuf/gen/securegcm\xa2\x02\x04SGCM"
 
 var (
 	file_securegcm_proto_rawDescOnce sync.Once

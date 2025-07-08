@@ -21,7 +21,7 @@
 package securegcm
 
 import (
-	securemessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
+	securemessage "github.com/ACLzz/qshare/internal/protobuf/gen/securemessage"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -429,8 +429,8 @@ const file_device_to_device_messages_proto_rawDesc = "" +
 	"hash_value\x18\x03 \x01(\fR\thashValue\x12\x18\n" +
 	"\apayload\x18\x04 \x01(\fR\apayload*\x15\n" +
 	"\x05Curve\x12\f\n" +
-	"\bED_25519\x10\x01B\x8f\x01\n" +
-	"+com.google.security.cryptauth.lib.securegcmB\x1bDeviceToDeviceMessagesProtoH\x03Z:github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm\xa2\x02\x04SGCM"
+	"\bED_25519\x10\x01B\x8c\x01\n" +
+	"+com.google.security.cryptauth.lib.securegcmB\x1bDeviceToDeviceMessagesProtoH\x03Z7github.com/ACLzz/qshare/internal/protobuf/gen/securegcm\xa2\x02\x04SGCM"
 
 var (
 	file_device_to_device_messages_proto_rawDescOnce sync.Once

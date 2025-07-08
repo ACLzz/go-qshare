@@ -3,9 +3,9 @@ package server
 import (
 	"os"
 	"testing"
-	"time"
 
-	qshare "github.com/ACLzz/go-qshare"
+	"github.com/ACLzz/qshare"
+	"github.com/ACLzz/qshare/internal/rand"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestBuilder(t *testing.T) {
-	clk := qshare.NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
+	rng := rand.NewStatic(1746361391)
 	hostname := "test_hostname"
 	patches := gomonkey.NewPatches()
 	patches.ApplyFunc(os.Hostname, func() (string, error) {
@@ -145,7 +145,8 @@ func TestBuilder(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			builder := NewBuilder(clk)
+			builder := NewBuilder().
+				WithRandom(rng)
 			if tt.prepare != nil {
 				tt.prepare(t, builder)
 			}

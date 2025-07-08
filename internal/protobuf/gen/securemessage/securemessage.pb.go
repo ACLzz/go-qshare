@@ -763,8 +763,8 @@ const file_securemessage_proto_rawDesc = "" +
 	"\rPublicKeyType\x12\v\n" +
 	"\aEC_P256\x10\x01\x12\v\n" +
 	"\aRSA2048\x10\x02\x12\x0f\n" +
-	"\vDH2048_MODP\x10\x03B\x8e\x01\n" +
-	"/com.google.security.cryptauth.lib.securemessageB\x12SecureMessageProtoH\x03Z>github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage\xa2\x02\x04SMSG"
+	"\vDH2048_MODP\x10\x03B\x8b\x01\n" +
+	"/com.google.security.cryptauth.lib.securemessageB\x12SecureMessageProtoH\x03Z;github.com/ACLzz/qshare/internal/protobuf/gen/securemessage\xa2\x02\x04SMSG"
 
 var (
 	file_securemessage_proto_rawDescOnce sync.Once

@@ -1,8 +1,8 @@
 package adapter
 
 import (
-	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
-	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
+	pbConnections "github.com/ACLzz/qshare/internal/protobuf/gen/connections"
+	pbSecuregcm "github.com/ACLzz/qshare/internal/protobuf/gen/securegcm"
 	"google.golang.org/protobuf/proto"
 )
 

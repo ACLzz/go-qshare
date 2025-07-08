@@ -3,16 +3,18 @@ package adapter
 import (
 	"net"
 
-	"github.com/ACLzz/go-qshare/internal/crypt"
-	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
-	"github.com/ACLzz/go-qshare/log"
+	"github.com/ACLzz/qshare"
+	"github.com/ACLzz/qshare/internal/crypt"
+	pbConnections "github.com/ACLzz/qshare/internal/protobuf/gen/connections"
+	"github.com/ACLzz/qshare/internal/rand"
 	"google.golang.org/protobuf/proto"
 )
 
 type Adapter struct {
 	conn   net.Conn
 	cipher *crypt.Cipher
-	log    log.Logger
+	log    qshare.Logger
+	rand   rand.Random
 
 	seqNumber            int32
 	isEncrypted          bool
@@ -24,10 +26,11 @@ type Adapter struct {
 // TODO: remove cipher from arguments and manage it internally
 func New(
 	conn net.Conn,
-	logger log.Logger,
+	logger qshare.Logger,
 	cipher *crypt.Cipher,
 	fileChunkCallback FileChunkCallback,
 	textTransferCallback TextTransferCallback,
+	r rand.Random,
 ) Adapter {
 	return Adapter{
 		conn:                 conn,
@@ -35,6 +38,7 @@ func New(
 		log:                  logger,
 		fileChunkCallback:    fileChunkCallback,
 		textTransferCallback: textTransferCallback,
+		rand:                 r,
 	}
 }
 

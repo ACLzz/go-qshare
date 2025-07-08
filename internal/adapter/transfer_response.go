@@ -1,7 +1,7 @@
 package adapter
 
 import (
-	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+	pbSharing "github.com/ACLzz/qshare/internal/protobuf/gen/sharing"
 )
 
 func (a *Adapter) UnmarshalTransferResponse(msg []byte) (bool, error) {

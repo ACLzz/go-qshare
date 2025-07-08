@@ -1,6 +1,6 @@
 package adapter
 
-import pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+import pbSharing "github.com/ACLzz/qshare/internal/protobuf/gen/sharing"
 
 func (a *Adapter) ValidateTransferRequest(msg []byte) error {
 	frame, err := unmarshalSharingFrame(msg)

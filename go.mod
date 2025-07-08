@@ -1,4 +1,4 @@
-module github.com/ACLzz/go-qshare
+module github.com/ACLzz/qshare
 
 go 1.24.2
 

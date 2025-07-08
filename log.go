@@ -1,4 +1,4 @@
-package log
+package qshare
 
 type Logger interface {
 	Error(msg string, err error, args ...any)

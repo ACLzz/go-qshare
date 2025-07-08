@@ -4,8 +4,8 @@ import (
 	"crypto/sha512"
 	"fmt"
 
-	"github.com/ACLzz/go-qshare/internal/crypt"
-	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
+	pbSecuregcm "github.com/ACLzz/qshare/internal/protobuf/gen/securegcm"
+	"github.com/ACLzz/qshare/internal/rand"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -56,13 +56,9 @@ func (a *Adapter) SendClientInitWithClientFinished() error {
 	commitment := sha512.Sum512(clientFinished)
 
 	// prepare client init
-	random, err := crypt.RandomBytes(32)
-	if err != nil {
-		return fmt.Errorf("generate random bytes: %w", err)
-	}
 	clientInitMessage, err := proto.Marshal(&pbSecuregcm.Ukey2ClientInit{
 		Version: proto.Int32(1),
-		Random:  random,
+		Random:  rand.Bytes(a.rand, 32),
 		CipherCommitments: []*pbSecuregcm.Ukey2ClientInit_CipherCommitment{
 			{
 				HandshakeCipher: pbSecuregcm.Ukey2HandshakeCipher_P256_SHA512.Enum(),

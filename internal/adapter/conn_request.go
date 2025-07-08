@@ -3,9 +3,9 @@ package adapter
 import (
 	"fmt"
 
-	qshare "github.com/ACLzz/go-qshare"
-	"github.com/ACLzz/go-qshare/internal/crypt"
-	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
+	"github.com/ACLzz/qshare"
+	pbConnections "github.com/ACLzz/qshare/internal/protobuf/gen/connections"
+	"github.com/ACLzz/qshare/internal/rand"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -29,7 +29,7 @@ func (a *Adapter) UnmarshalConnRequest(msg []byte) (ConnRequest, error) {
 }
 
 func (a *Adapter) SendConnRequest(endpointID, hostname string, device qshare.DeviceType) error {
-	endpointInfo, err := CraftEndpointInfo(hostname, device)
+	endpointInfo, err := CraftEndpointInfo(a.rand, hostname, device)
 	if err != nil {
 		return fmt.Errorf("craft endpoint info: %w", err)
 	}
@@ -46,17 +46,13 @@ func (a *Adapter) SendConnRequest(endpointID, hostname string, device qshare.Dev
 	})
 }
 
-func CraftEndpointInfo(hostname string, device qshare.DeviceType) ([]byte, error) {
+func CraftEndpointInfo(r rand.Random, hostname string, device qshare.DeviceType) ([]byte, error) {
 	hostnameBytes := []byte(hostname)
 	buf := make([]byte, 1, len(hostnameBytes)+17)
 
 	buf[0] = byte(device << 1)
-	randomData, err := crypt.RandomBytes(16)
-	if err != nil {
-		return nil, fmt.Errorf("generate random data: %w", err)
-	}
 
-	buf = append(buf, randomData...)
+	buf = append(buf, rand.Bytes(r, 16)...)
 	buf = append(buf, byte(len(hostnameBytes)))
 	buf = append(buf, hostnameBytes...)
 

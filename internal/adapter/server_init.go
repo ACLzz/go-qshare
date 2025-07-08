@@ -3,12 +3,12 @@ package adapter
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/rand"
+	cryptoRand "crypto/rand"
 	"fmt"
 
-	"github.com/ACLzz/go-qshare/internal/crypt"
-	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
-	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
+	pbSecuregcm "github.com/ACLzz/qshare/internal/protobuf/gen/securegcm"
+	pbSecureMessage "github.com/ACLzz/qshare/internal/protobuf/gen/securemessage"
+	"github.com/ACLzz/qshare/internal/rand"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -20,15 +20,9 @@ func (a *Adapter) SendServerInit() error {
 	}
 
 	// prepare server init message
-	randomData, err := crypt.RandomBytes(32)
-	if err != nil {
-		return fmt.Errorf("generate random data: %w", err)
-	}
-
-	version := int32(1)
 	serverInitMsg, err := proto.Marshal(&pbSecuregcm.Ukey2ServerInit{
-		Version:         &version,
-		Random:          randomData,
+		Version:         proto.Int32(1),
+		Random:          rand.Bytes(a.rand, 32),
 		HandshakeCipher: targetCipher.Enum(),
 		PublicKey:       publicKey,
 	})
@@ -103,7 +97,7 @@ func (a *Adapter) ValidateServerInit(msg []byte) error {
 
 func generatePrivatePublicKeys() (*ecdsa.PrivateKey, []byte, error) {
 	// generate private key
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptoRand.Reader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate ecdsa private key: %w", err)
 	}

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	qshare "github.com/ACLzz/go-qshare"
-	"github.com/ACLzz/go-qshare/internal/mdns"
-	qserver "github.com/ACLzz/go-qshare/server"
+	"github.com/ACLzz/qshare/internal/mdns"
+	"github.com/ACLzz/qshare/internal/rand"
+	qserver "github.com/ACLzz/qshare/server"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/grandcat/zeroconf"
 	"github.com/stretchr/testify/assert"
@@ -17,10 +17,12 @@ import (
 )
 
 func TestServer_StartStop(t *testing.T) {
-	clk := qshare.NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
+	rng := rand.NewStatic(1746361391)
 
 	t.Run("start_stop_with_listen", func(t *testing.T) {
-		server, err := qserver.NewBuilder(clk).Build(nil, nil)
+		server, err := qserver.NewBuilder().
+			WithRandom(rng).
+			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -29,7 +31,9 @@ func TestServer_StartStop(t *testing.T) {
 	})
 
 	t.Run("start_stop_without_listen", func(t *testing.T) {
-		server, err := qserver.NewBuilder(clk).Build(nil, nil)
+		server, err := qserver.NewBuilder().
+			WithRandom(rng).
+			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -38,7 +42,7 @@ func TestServer_StartStop(t *testing.T) {
 }
 
 func TestServer_mDNS(t *testing.T) {
-	clk := qshare.NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
+	rng := rand.NewStatic(1746361391)
 
 	t.Run("with_custom_values", func(t *testing.T) {
 		machineHostname, err := os.Hostname()
@@ -47,9 +51,10 @@ func TestServer_mDNS(t *testing.T) {
 		hostname := "test_hostname"
 		port := 6666
 
-		server, err := qserver.NewBuilder(clk).
+		server, err := qserver.NewBuilder().
 			WithHostname(hostname).
 			WithPort(port).
+			WithRandom(rng).
 			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
@@ -84,7 +89,9 @@ func TestServer_mDNS(t *testing.T) {
 		machineHostname, err := os.Hostname()
 		require.NoError(t, err)
 
-		server, err := qserver.NewBuilder(clk).Build(nil, nil)
+		server, err := qserver.NewBuilder().
+			WithRandom(rng).
+			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -116,7 +123,7 @@ func TestServer_mDNS(t *testing.T) {
 }
 
 func TestServer_bleAdvertisements(t *testing.T) {
-	clk := qshare.NewStatic(time.Date(2025, 5, 4, 12, 23, 11, 0, time.UTC))
+	rng := rand.NewStatic(1746361391)
 
 	t.Run("adapter_available", func(t *testing.T) {
 		isAdapterStarted := false
@@ -130,7 +137,8 @@ func TestServer_bleAdvertisements(t *testing.T) {
 			return nil
 		})
 
-		server, err := qserver.NewBuilder(clk).
+		server, err := qserver.NewBuilder().
+			WithRandom(rng).
 			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)

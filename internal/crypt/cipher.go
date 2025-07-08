@@ -14,7 +14,7 @@ import (
 	"hash"
 	"math/big"
 
-	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
+	pbSecureMessage "github.com/ACLzz/qshare/internal/protobuf/gen/securemessage"
 )
 
 /*

@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"net"
 	"sync"
 
-	qshare "github.com/ACLzz/go-qshare"
-	"github.com/ACLzz/go-qshare/internal/adapter"
-	"github.com/ACLzz/go-qshare/internal/crypt"
-	"github.com/ACLzz/go-qshare/log"
+	"github.com/ACLzz/qshare"
+	"github.com/ACLzz/qshare/internal/adapter"
+	"github.com/ACLzz/qshare/internal/crypt"
+	"github.com/ACLzz/qshare/internal/rand"
 )
 
 const max_title_length = 12
@@ -20,10 +19,11 @@ const max_title_length = 12
 type Connection struct {
 	cipher  *crypt.Cipher
 	conn    net.Conn
-	log     log.Logger
+	log     qshare.Logger
 	adapter adapter.Adapter
 	wg      *sync.WaitGroup // TODO: maybe remove
 	cfg     Config
+	rand    rand.Random
 }
 
 type Config struct {
@@ -32,16 +32,17 @@ type Config struct {
 	DeviceType qshare.DeviceType
 }
 
-func NewConnection(conn net.Conn, logger log.Logger, cfg Config, wg *sync.WaitGroup) Connection {
+func NewConnection(conn net.Conn, logger qshare.Logger, cfg Config, wg *sync.WaitGroup, r rand.Random) Connection {
 	cipher := crypt.NewCipher(false)
 
 	return Connection{
 		cipher:  &cipher,
 		conn:    conn,
 		log:     logger,
-		adapter: adapter.New(conn, logger, &cipher, nil, nil),
+		adapter: adapter.New(conn, logger, &cipher, nil, nil, r),
 		wg:      wg,
 		cfg:     cfg,
+		rand:    r,
 	}
 }
 
@@ -54,7 +55,7 @@ func (c *Connection) SendText(ctx context.Context, text string) error {
 	} else {
 		title = text
 	}
-	textPayloadID := rand.Int64()
+	textPayloadID := c.rand.Int64()
 
 	if err := c.adapter.SendIntroduction(
 		adapter.IntroductionFrame{
@@ -92,7 +93,7 @@ func (c *Connection) SendText(ctx context.Context, text string) error {
 	c.log.Debug("server accepted transfer")
 
 	// send random data
-	if err := c.adapter.SendDataInChunks(rand.Int64(), []byte("random")); err != nil {
+	if err := c.adapter.SendDataInChunks(c.rand.Int64(), []byte("random")); err != nil {
 		return fmt.Errorf("send random data: %w", err)
 	}
 
@@ -115,7 +116,7 @@ func (c *Connection) SendFiles(ctx context.Context, files []qshare.FilePayload) 
 	// send introduction
 	var filePayloads = map[int64]*qshare.FilePayload{}
 	for i := range files {
-		filePayloads[rand.Int64()] = &files[i]
+		filePayloads[c.rand.Int64()] = &files[i]
 	}
 
 	if err := c.adapter.SendIntroduction(
@@ -149,7 +150,7 @@ func (c *Connection) SendFiles(ctx context.Context, files []qshare.FilePayload) 
 	c.log.Debug("server accepted transfer")
 
 	// send random data
-	if err := c.adapter.SendDataInChunks(rand.Int64(), []byte("random")); err != nil {
+	if err := c.adapter.SendDataInChunks(c.rand.Int64(), []byte("random")); err != nil {
 		return fmt.Errorf("send random data: %w", err)
 	}
 

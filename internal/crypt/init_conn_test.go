@@ -7,7 +7,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
+	pbSecureMessage "github.com/ACLzz/qshare/internal/protobuf/gen/securemessage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

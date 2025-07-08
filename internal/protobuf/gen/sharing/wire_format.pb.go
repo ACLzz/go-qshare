@@ -1446,7 +1446,7 @@ const file_wire_format_proto_rawDesc = "" +
 	"\x0fWifiCredentials\x12\x1a\n" +
 	"\bpassword\x18\x01 \x01(\tR\bpassword\x12&\n" +
 	"\vhidden_ssid\x18\x02 \x01(\b:\x05falseR\n" +
-	"hiddenSsidB<H\x03Z8github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+	"hiddenSsidB9H\x03Z5github.com/ACLzz/qshare/internal/protobuf/gen/sharing"
 
 var (
 	file_wire_format_proto_rawDescOnce sync.Once

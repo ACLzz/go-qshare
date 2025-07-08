@@ -4,8 +4,8 @@ import (
 	"io"
 	"math/rand/v2"
 
-	qshare "github.com/ACLzz/go-qshare"
-	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+	"github.com/ACLzz/qshare"
+	pbSharing "github.com/ACLzz/qshare/internal/protobuf/gen/sharing"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 )

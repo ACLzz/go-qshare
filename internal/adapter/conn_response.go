@@ -3,7 +3,7 @@ package adapter
 import (
 	"runtime"
 
-	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
+	pbConnections "github.com/ACLzz/qshare/internal/protobuf/gen/connections"
 )
 
 type ConnResponse struct {
@@ -45,7 +45,6 @@ func (a *Adapter) SendConnResponse(isAccepted bool) error {
 		Type: pbConnections.V1Frame_CONNECTION_RESPONSE.Enum(),
 		ConnectionResponse: &pbConnections.ConnectionResponseFrame{
 			Response: response.Enum(),
-			// Status:   proto.Int32(0), // TODO: delete
 			OsInfo: &pbConnections.OsInfo{
 				Type: osType.Enum(),
 			},

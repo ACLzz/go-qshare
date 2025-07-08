@@ -7,10 +7,10 @@ import (
 	"net"
 	"sync"
 
-	qshare "github.com/ACLzz/go-qshare"
-	adapter "github.com/ACLzz/go-qshare/internal/adapter"
-	"github.com/ACLzz/go-qshare/internal/crypt"
-	"github.com/ACLzz/go-qshare/log"
+	"github.com/ACLzz/qshare"
+	adapter "github.com/ACLzz/qshare/internal/adapter"
+	"github.com/ACLzz/qshare/internal/crypt"
+	"github.com/ACLzz/qshare/internal/rand"
 )
 
 type connection struct {
@@ -18,7 +18,7 @@ type connection struct {
 	cancelCtx context.CancelFunc
 	adapter   adapter.Adapter
 	conn      net.Conn
-	log       log.Logger
+	log       qshare.Logger
 
 	nextExpectedMessage expectedMessage
 	phase               phase
@@ -34,9 +34,10 @@ type connection struct {
 func newConnection(
 	ctx context.Context,
 	conn net.Conn,
-	logger log.Logger,
+	logger qshare.Logger,
 	textCallback qshare.TextCallback,
 	fileCallback qshare.FileCallback,
+	r rand.Random,
 ) *connection {
 	cipher := crypt.NewCipher(true)
 	connCtx, cancel := context.WithCancel(ctx)
@@ -50,7 +51,7 @@ func newConnection(
 		textCallback:        textCallback,
 		fileCallback:        fileCallback,
 	}
-	c.adapter = adapter.New(conn, logger, &cipher, c.writeFileChunk, c.writeText)
+	c.adapter = adapter.New(conn, logger, &cipher, c.writeFileChunk, c.writeText, r)
 
 	return c
 }

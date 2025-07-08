@@ -1,10 +1,8 @@
 package adapter
 
 import (
-	"fmt"
-
-	"github.com/ACLzz/go-qshare/internal/crypt"
-	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+	pbSharing "github.com/ACLzz/qshare/internal/protobuf/gen/sharing"
+	"github.com/ACLzz/qshare/internal/rand"
 )
 
 func (a *Adapter) ValidatePairedKeyEncryption(msg []byte) error {
@@ -23,21 +21,11 @@ func (a *Adapter) ValidatePairedKeyEncryption(msg []byte) error {
 }
 
 func (a *Adapter) SendPairedKeyEncryption() error {
-	secretIDHash, err := crypt.RandomBytes(6)
-	if err != nil {
-		return fmt.Errorf("generate secret id hash: %w", err)
-	}
-
-	signedData, err := crypt.RandomBytes(72)
-	if err != nil {
-		return fmt.Errorf("generate signed data: %w", err)
-	}
-
 	return a.writeSecureFrame(&pbSharing.V1Frame{
 		Type: pbSharing.V1Frame_PAIRED_KEY_ENCRYPTION.Enum(),
 		PairedKeyEncryption: &pbSharing.PairedKeyEncryptionFrame{
-			SecretIdHash: secretIDHash,
-			SignedData:   signedData,
+			SecretIdHash: rand.Bytes(a.rand, 6),
+			SignedData:   rand.Bytes(a.rand, 72),
 		},
 	})
 }

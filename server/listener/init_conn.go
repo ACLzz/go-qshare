@@ -3,7 +3,7 @@ package listener
 import (
 	"fmt"
 
-	adapter "github.com/ACLzz/go-qshare/internal/adapter"
+	adapter "github.com/ACLzz/qshare/internal/adapter"
 )
 
 func (c *connection) processConnRequest(msg []byte) error {

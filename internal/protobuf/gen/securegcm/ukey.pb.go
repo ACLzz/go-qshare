@@ -642,8 +642,8 @@ const file_ukey_proto_rawDesc = "" +
 	"\x14Ukey2HandshakeCipher\x12\f\n" +
 	"\bRESERVED\x10\x00\x12\x0f\n" +
 	"\vP256_SHA512\x10d\x12\x16\n" +
-	"\x11CURVE25519_SHA512\x10\xc8\x01Bv\n" +
-	"+com.google.security.cryptauth.lib.securegcmB\tUkeyProtoH\x03Z:github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
+	"\x11CURVE25519_SHA512\x10\xc8\x01Bs\n" +
+	"+com.google.security.cryptauth.lib.securegcmB\tUkeyProtoH\x03Z7github.com/ACLzz/qshare/internal/protobuf/gen/securegcm"
 
 var (
 	file_ukey_proto_rawDescOnce sync.Once

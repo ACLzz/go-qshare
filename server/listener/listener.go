@@ -6,24 +6,26 @@ import (
 	"net"
 	"sync"
 
-	qshare "github.com/ACLzz/go-qshare"
-	"github.com/ACLzz/go-qshare/log"
+	"github.com/ACLzz/qshare"
+	"github.com/ACLzz/qshare/internal/rand"
 )
 
 type Listener struct {
 	sock         net.Listener
 	wg           *sync.WaitGroup
-	log          log.Logger
+	log          qshare.Logger
 	textCallback qshare.TextCallback
 	fileCallback qshare.FileCallback
 	stopCh       chan struct{}
+	rand         rand.Random
 }
 
 func New(
 	port int,
-	log log.Logger,
+	log qshare.Logger,
 	textCallback qshare.TextCallback,
 	fileCallback qshare.FileCallback,
+	r rand.Random,
 ) (Listener, error) {
 	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -37,6 +39,7 @@ func New(
 		textCallback: textCallback,
 		fileCallback: fileCallback,
 		stopCh:       make(chan struct{}, 1),
+		rand:         r,
 	}, nil
 }
 
@@ -64,7 +67,7 @@ func (l Listener) Listen() {
 		}
 
 		l.wg.Add(1)
-		c := newConnection(ctx, conn, l.log, l.textCallback, l.fileCallback)
+		c := newConnection(ctx, conn, l.log, l.textCallback, l.fileCallback, l.rand)
 		go c.Accept(l.wg) // TODO: maybe limit amount of gorutines here
 	}
 }

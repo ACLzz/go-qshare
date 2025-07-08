@@ -7,11 +7,11 @@ import (
 	"io"
 	"math/rand/v2"
 
-	qshare "github.com/ACLzz/go-qshare"
-	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
-	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
-	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
-	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
+	"github.com/ACLzz/qshare"
+	pbConnections "github.com/ACLzz/qshare/internal/protobuf/gen/connections"
+	pbSecuregcm "github.com/ACLzz/qshare/internal/protobuf/gen/securegcm"
+	pbSecureMessage "github.com/ACLzz/qshare/internal/protobuf/gen/securemessage"
+	pbSharing "github.com/ACLzz/qshare/internal/protobuf/gen/sharing"
 	"google.golang.org/protobuf/proto"
 )
 
