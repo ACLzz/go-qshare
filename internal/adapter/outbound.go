@@ -2,15 +2,20 @@ package adapter
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"math/rand/v2"
 
+	qshare "github.com/ACLzz/go-qshare"
 	pbConnections "github.com/ACLzz/go-qshare/internal/protobuf/gen/connections"
 	pbSecuregcm "github.com/ACLzz/go-qshare/internal/protobuf/gen/securegcm"
 	pbSecureMessage "github.com/ACLzz/go-qshare/internal/protobuf/gen/securemessage"
 	pbSharing "github.com/ACLzz/go-qshare/internal/protobuf/gen/sharing"
 	"google.golang.org/protobuf/proto"
 )
+
+const FILE_CHUNK_SIZE = 512 * 1024 // 512 KB
 
 func (a *Adapter) writeMessage(data []byte) error {
 	msgLength := uint32(len(data))
@@ -124,6 +129,7 @@ func (a *Adapter) SendBadMessageError() {
 }
 
 func (a *Adapter) SendDataInChunks(payloadID int64, data []byte) error {
+	// TODO: make a limit per chunk
 	// message
 	if err := a.encryptAndWrite(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_PAYLOAD_TRANSFER.Enum(),
@@ -159,6 +165,81 @@ func (a *Adapter) SendDataInChunks(payloadID int64, data []byte) error {
 				Id:          proto.Int64(payloadID),
 				Type:        pbConnections.PayloadTransferFrame_PayloadHeader_BYTES.Enum(),
 				TotalSize:   proto.Int64(int64(len(data))),
+				IsSensitive: proto.Bool(false),
+			},
+		},
+	}); err != nil {
+		return fmt.Errorf("encrypt and write last chunk: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Adapter) SendFileInChunks(payloadID int64, file qshare.FilePayload) error {
+	var (
+		err    error
+		n      int
+		offset int64
+		buf    = make([]byte, FILE_CHUNK_SIZE)
+	)
+	defer func() {
+		if err := file.Pr.Close(); err != nil {
+			a.log.Error("close file pipe reader", err)
+		}
+	}()
+
+	// send chunks
+	for {
+		n, err = io.ReadFull(file.Pr, buf)
+		if err != nil {
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				break
+			}
+			return fmt.Errorf("read file chunk: %w", err)
+		}
+
+		if err = a.encryptAndWrite(&pbConnections.V1Frame{
+			Type: pbConnections.V1Frame_PAYLOAD_TRANSFER.Enum(),
+			PayloadTransfer: &pbConnections.PayloadTransferFrame{
+				PacketType: pbConnections.PayloadTransferFrame_DATA.Enum(),
+				PayloadChunk: &pbConnections.PayloadTransferFrame_PayloadChunk{
+					Offset: proto.Int64(offset),
+					Flags:  proto.Int32(0),
+					Body:   buf,
+				},
+				PayloadHeader: &pbConnections.PayloadTransferFrame_PayloadHeader{
+					Id:          proto.Int64(payloadID),
+					Type:        pbConnections.PayloadTransferFrame_PayloadHeader_FILE.Enum(),
+					TotalSize:   proto.Int64(file.Meta.Size),
+					FileName:    proto.String(file.Meta.Title),
+					IsSensitive: proto.Bool(false),
+				},
+			},
+		}); err != nil {
+			return fmt.Errorf("encrypt and write file chunk: %w", err)
+		}
+
+		offset += int64(n)
+		if n < FILE_CHUNK_SIZE {
+			break
+		}
+	}
+
+	// last chunk
+	if err := a.encryptAndWrite(&pbConnections.V1Frame{
+		Type: pbConnections.V1Frame_PAYLOAD_TRANSFER.Enum(),
+		PayloadTransfer: &pbConnections.PayloadTransferFrame{
+			PacketType: pbConnections.PayloadTransferFrame_DATA.Enum(),
+			PayloadChunk: &pbConnections.PayloadTransferFrame_PayloadChunk{
+				Offset: proto.Int64(offset),
+				Flags:  proto.Int32(1),
+				Body:   []byte{},
+			},
+			PayloadHeader: &pbConnections.PayloadTransferFrame_PayloadHeader{
+				Id:          proto.Int64(payloadID),
+				Type:        pbConnections.PayloadTransferFrame_PayloadHeader_FILE.Enum(),
+				TotalSize:   proto.Int64(file.Meta.Size),
+				FileName:    proto.String(file.Meta.Title),
 				IsSensitive: proto.Bool(false),
 			},
 		},

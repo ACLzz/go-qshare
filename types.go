@@ -25,11 +25,17 @@ const (
 	TextPhoneNumber
 )
 
-type TextPayload struct {
-	Type  TextType
-	Title string
-	Size  int64
-}
+type (
+	TextMeta struct {
+		Type  TextType
+		Title string
+		Size  int64
+	}
+	TextPayload struct {
+		Meta TextMeta
+		Text string
+	}
+)
 
 type FileType uint8
 
@@ -41,15 +47,21 @@ const (
 	FileAudio
 )
 
-type FilePayload struct {
-	Type     FileType
-	Title    string
-	MimeType string
-	Size     int64
-}
+type (
+	FileMeta struct {
+		Type     FileType
+		Title    string
+		MimeType string
+		Size     int64
+	}
+	FilePayload struct {
+		Meta FileMeta
+		Pr   *io.PipeReader
+	}
+)
 
 type (
-	TextCallback func(meta TextPayload, text string)
-	FileCallback func(meta FilePayload, pr *io.PipeReader)
-	AuthCallback func(text *TextPayload, files []FilePayload, pin string) bool
+	TextCallback func(payload TextPayload)
+	FileCallback func(payload FilePayload)
+	AuthCallback func(text *TextMeta, files []FileMeta, pin string) bool
 )

@@ -15,14 +15,14 @@ import (
 	"github.com/ACLzz/go-qshare/log"
 )
 
-const max_text_title_length = 12
+const max_title_length = 12
 
 type Connection struct {
 	cipher  *crypt.Cipher
 	conn    net.Conn
 	log     log.Logger
 	adapter adapter.Adapter
-	wg      *sync.WaitGroup
+	wg      *sync.WaitGroup // TODO: maybe remove
 	cfg     Config
 }
 
@@ -48,8 +48,8 @@ func NewConnection(conn net.Conn, logger log.Logger, cfg Config, wg *sync.WaitGr
 func (c *Connection) SendText(ctx context.Context, text string) error {
 	// send introduction
 	var title string
-	if len(text) > max_text_title_length {
-		title = text[:max_text_title_length-3]
+	if len(text) > max_title_length {
+		title = text[:max_title_length-3]
 		title += "..."
 	} else {
 		title = text
@@ -58,7 +58,7 @@ func (c *Connection) SendText(ctx context.Context, text string) error {
 
 	if err := c.adapter.SendIntroduction(
 		adapter.IntroductionFrame{
-			Text: adapter.NewTextPayload(
+			Text: adapter.NewTextMeta(
 				textPayloadID,
 				qshare.TextText,
 				title,
@@ -103,12 +103,66 @@ func (c *Connection) SendText(ctx context.Context, text string) error {
 
 	// disconnect
 	c.log.Debug("success transer, disconnecting...")
-	c.adapter.Disconnect()
+	c.adapter.Disconnect() // TODO: move to a separate method so that client can use it on it's own
 	return nil
 }
 
-func (c *Connection) SendFiles() error {
-	defer c.wg.Done()
+func (c *Connection) SendFiles(ctx context.Context, files []qshare.FilePayload) error {
+	if len(files) == 0 {
+		return nil
+	}
+
+	// send introduction
+	var filePayloads = map[int64]*qshare.FilePayload{}
+	for i := range files {
+		filePayloads[rand.Int64()] = &files[i]
+	}
+
+	if err := c.adapter.SendIntroduction(
+		adapter.IntroductionFrame{
+			Files: filePayloads,
+		}); err != nil {
+		return fmt.Errorf("send introduction message: %w", err)
+	}
+
+	// send transfer request
+	if err := c.adapter.SendTransferRequest(); err != nil {
+		return fmt.Errorf("send transfer request: %w", err)
+	}
+
+	// process server response
+	c.log.Debug("waiting for server response...")
+	read := c.adapter.Reader(ctx)
+	msg, err := c.read(read)
+	if err != nil {
+		return fmt.Errorf("waiting for transfer response: %w", err)
+	}
+
+	isAccepted, err := c.adapter.UnmarshalTransferResponse(msg)
+	if err != nil {
+		return fmt.Errorf("unmarshal transfer response: %w", err)
+	}
+	if !isAccepted {
+		c.adapter.Disconnect()
+		return adapter.ErrConnWasEndedByClient
+	}
+	c.log.Debug("server accepted transfer")
+
+	// send random data
+	if err := c.adapter.SendDataInChunks(rand.Int64(), []byte("random")); err != nil {
+		return fmt.Errorf("send random data: %w", err)
+	}
+
+	// send files
+	for id := range filePayloads {
+		if err := c.adapter.SendFileInChunks(id, *filePayloads[id]); err != nil {
+			return fmt.Errorf("send file: %w", err)
+		}
+	}
+
+	// disconnect
+	c.log.Debug("success transer, disconnecting...")
+	c.adapter.Disconnect() // TODO: move to a separate method so that client can use it on it's own
 	return nil
 }
 

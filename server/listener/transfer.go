@@ -3,6 +3,7 @@ package listener
 import (
 	"fmt"
 
+	qshare "github.com/ACLzz/go-qshare"
 	adapter "github.com/ACLzz/go-qshare/internal/adapter"
 )
 
@@ -13,11 +14,20 @@ func (c *connection) processIntroduction(msg []byte) error {
 	}
 
 	if intro.HasText() {
-		c.textPayload = intro.Text
+		c.textMeta = intro.Text
 		c.expectedPayloads++
 	}
 	if intro.HasFiles() {
-		c.filePayloads = intro.Files
+		files := map[int64]*adapter.FilePayload{} // TODO: should it be map of pointers?
+		for payloadID := range intro.Files {
+			files[payloadID] = adapter.NewFilePayload(
+				intro.Files[payloadID].Meta.Type,
+				intro.Files[payloadID].Meta.Title,
+				intro.Files[payloadID].Meta.MimeType,
+				intro.Files[payloadID].Meta.Size,
+			)
+		}
+		c.filePayloads = files
 		c.expectedPayloads += len(c.filePayloads)
 	}
 
@@ -36,7 +46,7 @@ func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {
 	file := c.filePayloads[chunk.FileID]
 	if !file.IsNotified {
 		c.filePayloads[chunk.FileID].IsNotified = true
-		c.fileCallback(file.FilePayload, file.Pr)
+		c.fileCallback(file.FilePayload)
 	}
 
 	if len(chunk.Body) > 0 {
@@ -54,7 +64,7 @@ func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {
 
 	if chunk.IsFinalChunk {
 		file.Pw.Close()
-		c.log.Debug("file transfered", "filename", file.Title)
+		c.log.Debug("file transfered", "filename", file.Meta.Title)
 
 		c.receivedPayloads++
 		c.checkIfLastPayload()
@@ -64,11 +74,14 @@ func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {
 }
 
 func (c *connection) writeText(text string) error {
-	if c.textPayload == nil || c.textCallback == nil {
+	if c.textMeta == nil || c.textCallback == nil {
 		return ErrTextTransferNotExpected
 	}
 
-	c.textCallback(c.textPayload.TextPayload, text)
+	c.textCallback(qshare.TextPayload{
+		Meta: c.textMeta.TextMeta,
+		Text: text,
+	})
 	c.receivedPayloads++
 	c.checkIfLastPayload()
 	return nil

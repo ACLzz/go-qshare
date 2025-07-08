@@ -3,10 +3,10 @@ package client
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 
+	qshare "github.com/ACLzz/go-qshare"
 	"github.com/ACLzz/go-qshare/client/conn"
 	"github.com/ACLzz/go-qshare/internal/mdns"
 	"github.com/ACLzz/go-qshare/log"
@@ -71,7 +71,20 @@ func (c *Client) SendText(ctx context.Context, instance ServerInstance, text str
 	return nil
 }
 
-func (c *Client) SendFile(pw *io.PipeWriter) error {
+func (c *Client) SendFiles(ctx context.Context, instance ServerInstance, files []qshare.FilePayload) error {
+	cn, err := c.newConn(instance)
+	if err != nil {
+		return fmt.Errorf("create connection: %w", err)
+	}
+
+	if err := cn.SetupTransfer(ctx); err != nil {
+		return fmt.Errorf("setup transfer: %w", err)
+	}
+
+	if err := cn.SendFiles(ctx, files); err != nil {
+		return fmt.Errorf("send files: %w", err)
+	}
+
 	return nil
 }
 

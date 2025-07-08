@@ -11,8 +11,8 @@ import (
 )
 
 type IntroductionFrame struct {
-	Text  *TextPayload
-	Files map[int64]*FilePayload // TODO: should it be map of pointers?
+	Text  *TextMeta
+	Files map[int64]*qshare.FilePayload // TODO: should it be map of pointers?
 }
 
 func (f IntroductionFrame) HasText() bool {
@@ -55,11 +55,11 @@ func (a *Adapter) SendIntroduction(frame IntroductionFrame) error {
 	if len(frame.Files) > 0 {
 		for k := range frame.Files {
 			fileMetadata = append(fileMetadata, &pbSharing.FileMetadata{
-				Name:      proto.String(frame.Files[k].Title),
+				Name:      proto.String(frame.Files[k].Meta.Title),
 				Type:      pbSharing.FileMetadata_UNKNOWN.Enum(),
 				PayloadId: proto.Int64(k),
-				Size:      proto.Int64(frame.Files[k].Size),
-				MimeType:  proto.String(frame.Files[k].MimeType),
+				Size:      proto.Int64(frame.Files[k].Meta.Size),
+				MimeType:  proto.String(frame.Files[k].Meta.MimeType),
 				Id:        proto.Int64(int64(uuid.New().ID())),
 			})
 		}
@@ -99,37 +99,39 @@ func (a *Adapter) SendIntroduction(frame IntroductionFrame) error {
 	})
 }
 
+// TODO: check if there any need of this internal payload / meta structures
 type FilePayload struct {
 	qshare.FilePayload
 	IsNotified bool
 	BytesSent  int64
-	Pr         *io.PipeReader
 	Pw         *io.PipeWriter
 }
 
-func newFilePayload(t qshare.FileType, title, mimeType string, payloadID, size int64) *FilePayload {
+func NewFilePayload(t qshare.FileType, title, mimeType string, size int64) *FilePayload {
 	pr, pw := io.Pipe()
 	return &FilePayload{
 		FilePayload: qshare.FilePayload{
-			Type:     t,
-			Title:    title,
-			MimeType: mimeType,
-			Size:     size,
+			Meta: qshare.FileMeta{
+				Type:     t,
+				Title:    title,
+				MimeType: mimeType,
+				Size:     size,
+			},
+			Pr: pr,
 		},
 		IsNotified: false,
-		Pr:         pr,
 		Pw:         pw,
 	}
 }
 
-type TextPayload struct {
-	qshare.TextPayload
+type TextMeta struct {
+	qshare.TextMeta
 	ID int64
 }
 
-func NewTextPayload(ID int64, t qshare.TextType, title string, size int64) *TextPayload {
-	return &TextPayload{
-		TextPayload: qshare.TextPayload{
+func NewTextMeta(ID int64, t qshare.TextType, title string, size int64) *TextMeta {
+	return &TextMeta{
+		TextMeta: qshare.TextMeta{
 			Type:  t,
 			Title: title,
 			Size:  size,
@@ -138,7 +140,7 @@ func NewTextPayload(ID int64, t qshare.TextType, title string, size int64) *Text
 	}
 }
 
-func mapTextPayload(payloads []*pbSharing.TextMetadata) *TextPayload {
+func mapTextPayload(payloads []*pbSharing.TextMetadata) *TextMeta {
 	if len(payloads) == 0 {
 		return nil
 	}
@@ -157,8 +159,8 @@ func mapTextPayload(payloads []*pbSharing.TextMetadata) *TextPayload {
 		textType = qshare.TextUnknown
 	}
 
-	return &TextPayload{
-		TextPayload: qshare.TextPayload{
+	return &TextMeta{
+		TextMeta: qshare.TextMeta{
 			Type:  textType,
 			Title: payloads[0].GetTextTitle(),
 			Size:  payloads[0].GetSize(),
@@ -167,9 +169,9 @@ func mapTextPayload(payloads []*pbSharing.TextMetadata) *TextPayload {
 	}
 }
 
-func mapFilePayloads(payloads []*pbSharing.FileMetadata) map[int64]*FilePayload {
+func mapFilePayloads(payloads []*pbSharing.FileMetadata) map[int64]*qshare.FilePayload {
 	var fileType qshare.FileType
-	mappedPayloads := make(map[int64]*FilePayload, len(payloads))
+	mappedPayloads := make(map[int64]*qshare.FilePayload, len(payloads))
 
 	for i := range payloads {
 		switch payloads[i].GetType() {
@@ -185,13 +187,15 @@ func mapFilePayloads(payloads []*pbSharing.FileMetadata) map[int64]*FilePayload 
 			fileType = qshare.FileUnknown
 		}
 
-		mappedPayloads[payloads[i].GetPayloadId()] = newFilePayload(
-			fileType,
-			payloads[i].GetName(),
-			payloads[i].GetMimeType(),
-			payloads[i].GetPayloadId(),
-			payloads[i].GetSize(),
-		)
+		mappedPayloads[payloads[i].GetPayloadId()] = &qshare.FilePayload{
+			Meta: qshare.FileMeta{
+				Type:     fileType,
+				Title:    payloads[i].GetName(),
+				MimeType: payloads[i].GetMimeType(),
+				Size:     payloads[i].GetSize(),
+			},
+			Pr: nil,
+		}
 	}
 
 	return mappedPayloads
