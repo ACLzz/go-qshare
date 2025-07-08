@@ -16,3 +16,4 @@ To work with android devices (which is the main goal of this project) you need t
 - Better library incapsulation
 - Usage example in README
 - Docs
+- Security review
