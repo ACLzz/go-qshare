@@ -41,6 +41,9 @@ clean:
 test:
 	go test $(FLAGS) ./...
 
+ci-test:
+	CI=true go test $(FLAGS) ./...
+
 test-no-cache:
 	go test $(FLAGS) -count=1 ./...
 

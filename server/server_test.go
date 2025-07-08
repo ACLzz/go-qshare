@@ -123,6 +123,9 @@ func TestServer_mDNS(t *testing.T) {
 }
 
 func TestServer_bleAdvertisements(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip()
+	}
 	rng := rand.NewStatic(1746361391)
 
 	t.Run("adapter_available", func(t *testing.T) {

@@ -16,8 +16,6 @@ import (
 	"tinygo.org/x/bluetooth"
 )
 
-var alphaNumRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
 type serverBuilder struct {
 	rand rand.Random
 
