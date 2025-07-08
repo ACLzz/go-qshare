@@ -7,5 +7,12 @@ To work with android devices (which is the main goal of this project) you need t
 ## Test
 `make test`
 
-## WIP
-This project is still in WIP phase and cannot be used. I left it in public to be able to test my own projects with it and don't mess with the `.netrc` files.
+## TODO
+- CI/CD Pipeline
+- CI/CD Widget
+- Code coverage widget
+- Refactor all TODOs in codebase
+- Add more tests
+- Better library incapsulation
+- Usage example in README
+- Docs
