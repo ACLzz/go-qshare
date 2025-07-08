@@ -22,4 +22,4 @@ jobs:
         go-version: '1.24.2'
 
     - name: Test
-      run: make test
+      run: make ci-test
