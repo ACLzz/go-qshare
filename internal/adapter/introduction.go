@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"io"
 	"math/rand/v2"
 
 	"github.com/ACLzz/qshare"
@@ -55,7 +54,7 @@ func (a *Adapter) SendIntroduction(frame IntroductionFrame) error {
 	if len(frame.Files) > 0 {
 		for k := range frame.Files {
 			fileMetadata = append(fileMetadata, &pbSharing.FileMetadata{
-				Name:      proto.String(frame.Files[k].Meta.Title),
+				Name:      proto.String(frame.Files[k].Meta.Name),
 				Type:      pbSharing.FileMetadata_UNKNOWN.Enum(),
 				PayloadId: proto.Int64(k),
 				Size:      proto.Int64(frame.Files[k].Meta.Size),
@@ -97,31 +96,6 @@ func (a *Adapter) SendIntroduction(frame IntroductionFrame) error {
 			FileMetadata: fileMetadata,
 		},
 	})
-}
-
-// TODO: check if there any need of this internal payload / meta structures
-type FilePayload struct {
-	qshare.FilePayload
-	IsNotified bool
-	BytesSent  int64
-	Pw         *io.PipeWriter
-}
-
-func NewFilePayload(t qshare.FileType, title, mimeType string, size int64) *FilePayload {
-	pr, pw := io.Pipe()
-	return &FilePayload{
-		FilePayload: qshare.FilePayload{
-			Meta: qshare.FileMeta{
-				Type:     t,
-				Title:    title,
-				MimeType: mimeType,
-				Size:     size,
-			},
-			Pr: pr,
-		},
-		IsNotified: false,
-		Pw:         pw,
-	}
 }
 
 type TextMeta struct {
@@ -190,7 +164,7 @@ func mapFilePayloads(payloads []*pbSharing.FileMetadata) map[int64]*qshare.FileP
 		mappedPayloads[payloads[i].GetPayloadId()] = &qshare.FilePayload{
 			Meta: qshare.FileMeta{
 				Type:     fileType,
-				Title:    payloads[i].GetName(),
+				Name:     payloads[i].GetName(),
 				MimeType: payloads[i].GetMimeType(),
 				Size:     payloads[i].GetSize(),
 			},

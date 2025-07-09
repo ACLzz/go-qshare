@@ -13,6 +13,12 @@ import (
 	"github.com/ACLzz/qshare/internal/rand"
 )
 
+type filePayload struct {
+	Pd         qshare.FilePayload
+	IsNotified bool
+	BytesReceived int64
+}
+
 type connection struct {
 	ctx       context.Context
 	cancelCtx context.CancelFunc
@@ -24,7 +30,7 @@ type connection struct {
 	phase               phase
 
 	textMeta         *adapter.TextMeta // text payload can be sent only one
-	filePayloads     map[int64]*adapter.FilePayload
+	filePayloads     map[int64]*filePayload
 	expectedPayloads int
 	receivedPayloads int
 	textCallback     qshare.TextCallback

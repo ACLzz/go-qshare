@@ -50,13 +50,14 @@ const (
 type (
 	FileMeta struct {
 		Type     FileType
-		Title    string
+		Name     string
 		MimeType string
 		Size     int64
 	}
 	FilePayload struct {
 		Meta FileMeta
 		Pr   *io.PipeReader
+		Pw   *io.PipeWriter
 	}
 )
 

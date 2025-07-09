@@ -39,10 +39,10 @@ clean:
 	rm -rvf ./mocks
 
 test:
-	go test $(FLAGS) ./...
+	go test $(FLAGS) ./... -coverprofile=coverage.out
 
 ci-test:
-	CI=true go test $(FLAGS) ./...
+	CI=true go test $(FLAGS) ./... -coverprofile=coverage.out
 
 test-no-cache:
 	go test $(FLAGS) -count=1 ./...

@@ -2,6 +2,7 @@ package listener
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/ACLzz/qshare"
 	adapter "github.com/ACLzz/qshare/internal/adapter"
@@ -18,14 +19,16 @@ func (c *connection) processIntroduction(msg []byte) error {
 		c.expectedPayloads++
 	}
 	if intro.HasFiles() {
-		files := map[int64]*adapter.FilePayload{} // TODO: should it be map of pointers?
+		files := map[int64]*filePayload{} // TODO: should it be map of pointers?
 		for payloadID := range intro.Files {
-			files[payloadID] = adapter.NewFilePayload(
-				intro.Files[payloadID].Meta.Type,
-				intro.Files[payloadID].Meta.Title,
-				intro.Files[payloadID].Meta.MimeType,
-				intro.Files[payloadID].Meta.Size,
-			)
+			pr, pw := io.Pipe()
+			files[payloadID] = &filePayload{
+				Pd: qshare.FilePayload{
+					Meta: intro.Files[payloadID].Meta,
+					Pr:   pr,
+					Pw:   pw,
+				},
+			}
 		}
 		c.filePayloads = files
 		c.expectedPayloads += len(c.filePayloads)
@@ -46,11 +49,11 @@ func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {
 	file := c.filePayloads[chunk.FileID]
 	if !file.IsNotified {
 		c.filePayloads[chunk.FileID].IsNotified = true
-		c.fileCallback(file.FilePayload)
+		c.fileCallback(file.Pd)
 	}
 
 	if len(chunk.Body) > 0 {
-		n, err := file.Pw.Write(chunk.Body)
+		n, err := file.Pd.Pw.Write(chunk.Body)
 		if err != nil {
 			return fmt.Errorf("write chunk to pipe: %w", err)
 		}
@@ -59,12 +62,16 @@ func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {
 			return ErrInternalError // TODO: another error
 		}
 
-		c.filePayloads[chunk.FileID].BytesSent += int64(n)
+		c.filePayloads[chunk.FileID].BytesReceived += int64(n)
 	}
 
 	if chunk.IsFinalChunk {
-		file.Pw.Close()
-		c.log.Debug("file transfered", "filename", file.Meta.Title)
+		if c.filePayloads[chunk.FileID].BytesReceived != c.filePayloads[chunk.FileID].Pd.Meta.Size {
+			file.Pd.Pw.CloseWithError(ErrTransferNotComplete)
+			return ErrTransferNotComplete
+		}
+		file.Pd.Pw.Close()
+		c.log.Debug("file transfered", "filename", file.Pd.Meta.Name)
 
 		c.receivedPayloads++
 		c.checkIfLastPayload()
