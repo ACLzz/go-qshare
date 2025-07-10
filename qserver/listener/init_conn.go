@@ -7,14 +7,10 @@ import (
 )
 
 func (c *connection) processConnRequest(msg []byte) error {
-	req, err := c.adapter.UnmarshalConnRequest(msg)
+	// just validate and let it go
+	_, err := c.adapter.UnmarshalConnRequest(msg)
 	if err != nil {
 		return err
-	}
-
-	// just validate and let it go
-	if len(req.EndpointInfo) == 0 {
-		return adapter.ErrInvalidMessage
 	}
 
 	return nil

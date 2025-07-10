@@ -9,14 +9,12 @@ import (
 
 	"github.com/ACLzz/qshare"
 	adapter "github.com/ACLzz/qshare/internal/adapter"
-	"github.com/ACLzz/qshare/internal/crypt"
 	"github.com/ACLzz/qshare/internal/rand"
 )
 
 type filePayload struct {
 	Pd         qshare.FilePayload
 	IsNotified bool
-	BytesReceived int64
 }
 
 type connection struct {
@@ -45,7 +43,6 @@ func newConnection(
 	fileCallback qshare.FileCallback,
 	r rand.Random,
 ) *connection {
-	cipher := crypt.NewCipher(true)
 	connCtx, cancel := context.WithCancel(ctx)
 	c := &connection{
 		ctx:                 connCtx,
@@ -57,7 +54,7 @@ func newConnection(
 		textCallback:        textCallback,
 		fileCallback:        fileCallback,
 	}
-	c.adapter = adapter.New(conn, logger, &cipher, c.writeFileChunk, c.writeText, r)
+	c.adapter = adapter.New(conn, logger, true, c.writeFileChunk, c.writeText, r)
 
 	return c
 }
@@ -80,8 +77,6 @@ func (c *connection) Accept(wg *sync.WaitGroup) {
 				c.adapter.SendBadMessageError()
 			} else if errors.Is(err, adapter.ErrConnWasEndedByClient) {
 				return
-			} else if errors.Is(err, adapter.ErrTransferInProgress) {
-				continue
 			}
 
 			c.log.Error("read message", err)

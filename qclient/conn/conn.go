@@ -10,14 +10,12 @@ import (
 
 	"github.com/ACLzz/qshare"
 	"github.com/ACLzz/qshare/internal/adapter"
-	"github.com/ACLzz/qshare/internal/crypt"
 	"github.com/ACLzz/qshare/internal/rand"
 )
 
 const max_title_length = 12
 
 type Connection struct {
-	cipher  *crypt.Cipher
 	conn    net.Conn
 	log     qshare.Logger
 	adapter adapter.Adapter
@@ -33,13 +31,10 @@ type Config struct {
 }
 
 func NewConnection(conn net.Conn, logger qshare.Logger, cfg Config, wg *sync.WaitGroup, r rand.Random) Connection {
-	cipher := crypt.NewCipher(false)
-
 	return Connection{
-		cipher:  &cipher,
 		conn:    conn,
 		log:     logger,
-		adapter: adapter.New(conn, logger, &cipher, nil, nil, r),
+		adapter: adapter.New(conn, logger, false, nil, nil, r),
 		wg:      wg,
 		cfg:     cfg,
 		rand:    r,
@@ -216,7 +211,6 @@ func (c *Connection) SetupTransfer(ctx context.Context) error {
 	}
 
 	// pairing phase
-
 	if err = c.adapter.SendPairedKeyEncryption(); err != nil {
 		return fmt.Errorf("send paired key encryption: %w", err)
 	}
@@ -251,8 +245,6 @@ func (c *Connection) read(read func() ([]byte, error)) ([]byte, error) {
 				c.adapter.Disconnect()
 			} else if errors.Is(err, adapter.ErrOffsetMismatch) {
 				c.adapter.SendBadMessageError()
-			} else if errors.Is(err, adapter.ErrTransferInProgress) {
-				continue
 			}
 
 			c.log.Error("read message", err)

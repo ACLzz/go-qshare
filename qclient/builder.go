@@ -1,4 +1,4 @@
-package client
+package qclient
 
 import (
 	"fmt"
@@ -63,6 +63,7 @@ func (b *clientBuilder) propagateDefaultValues() error {
 	funcs := []propagateValueFn{
 		b.propDeviceType,
 		b.propLogger,
+		b.propRandom,
 	}
 
 	var err error
@@ -93,5 +94,17 @@ func (b *clientBuilder) propLogger() error {
 	}
 
 	b.logger = internalLog.NewLogger()
+	return nil
+}
+
+func (b *clientBuilder) propRandom() error {
+	if b.isRandomSet {
+		if b.rand == nil {
+			return ErrInvalidRandom
+		}
+		return nil
+	}
+
+	b.rand = rand.NewCrypt()
 	return nil
 }

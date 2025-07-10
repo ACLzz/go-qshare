@@ -1,10 +1,11 @@
-package server
+package qserver
 
 import (
 	"os"
 	"testing"
 
 	"github.com/ACLzz/qshare"
+	"github.com/ACLzz/qshare/internal/log"
 	"github.com/ACLzz/qshare/internal/rand"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,7 @@ func TestBuilder(t *testing.T) {
 		return hostname, nil
 	})
 	t.Cleanup(patches.Reset)
+	logger := log.NewLogger()
 
 	type (
 		expectConf struct {
@@ -58,6 +60,7 @@ func TestBuilder(t *testing.T) {
 					WithDeviceType(qshare.TabletDevice).
 					WithEndpoint("some").
 					WithHostname("test").
+					WithLogger(logger).
 					WithPort(1234)
 			},
 		},
@@ -139,6 +142,16 @@ func TestBuilder(t *testing.T) {
 				t.Helper()
 				*b = *b.
 					WithDeviceType(4)
+			},
+		},
+		"error/invalid_logger": {
+			expect: expect{
+				err: ErrInvalidLogger,
+			},
+			prepare: func(t *testing.T, b *serverBuilder) {
+				t.Helper()
+				*b = *b.
+					WithLogger(nil)
 			},
 		},
 	}

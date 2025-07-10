@@ -1,9 +1,10 @@
-package client
+package qclient
 
 import "errors"
 
 var (
 	ErrInvalidAdapter    = errors.New("invalid adapter")
+	ErrInvalidRandom     = errors.New("invalid random")
 	ErrInvalidDeviceType = errors.New("invalid device type")
 )
 

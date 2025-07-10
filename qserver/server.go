@@ -1,11 +1,11 @@
-package server
+package qserver
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/ACLzz/qshare/internal/mdns"
-	"github.com/ACLzz/qshare/server/listener"
+	"github.com/ACLzz/qshare/qserver/listener"
 	"github.com/grandcat/zeroconf"
 	"tinygo.org/x/bluetooth"
 )

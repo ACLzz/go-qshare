@@ -62,7 +62,7 @@ func TestCipher_Server_Setup(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c := NewCipher(true)
 			if tt.prepare != nil {
-				tt.prepare(t, &c)
+				tt.prepare(t, c)
 			}
 
 			err := c.Setup()

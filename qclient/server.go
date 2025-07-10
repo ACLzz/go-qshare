@@ -1,4 +1,4 @@
-package client
+package qclient
 
 import (
 	"github.com/grandcat/zeroconf"

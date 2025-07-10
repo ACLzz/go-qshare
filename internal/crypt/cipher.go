@@ -45,8 +45,8 @@ type Cipher struct {
 	encryptBlock       cipher.Block
 }
 
-func NewCipher(isServer bool) Cipher {
-	return Cipher{
+func NewCipher(isServer bool) *Cipher {
+	return &Cipher{
 		isServer: isServer,
 	}
 }

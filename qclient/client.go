@@ -1,4 +1,4 @@
-package client
+package qclient
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/ACLzz/qshare"
-	"github.com/ACLzz/qshare/client/conn"
+	"github.com/ACLzz/qshare/qclient/conn"
 	"github.com/ACLzz/qshare/internal/mdns"
 	"github.com/ACLzz/qshare/internal/rand"
 	"github.com/grandcat/zeroconf"

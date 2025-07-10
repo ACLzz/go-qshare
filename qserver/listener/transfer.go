@@ -19,7 +19,7 @@ func (c *connection) processIntroduction(msg []byte) error {
 		c.expectedPayloads++
 	}
 	if intro.HasFiles() {
-		files := map[int64]*filePayload{} // TODO: should it be map of pointers?
+		files := map[int64]*filePayload{}
 		for payloadID := range intro.Files {
 			pr, pw := io.Pipe()
 			files[payloadID] = &filePayload{
@@ -61,15 +61,9 @@ func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {
 		if n != len(chunk.Body) {
 			return ErrInternalError // TODO: another error
 		}
-
-		c.filePayloads[chunk.FileID].BytesReceived += int64(n)
 	}
 
 	if chunk.IsFinalChunk {
-		if c.filePayloads[chunk.FileID].BytesReceived != c.filePayloads[chunk.FileID].Pd.Meta.Size {
-			file.Pd.Pw.CloseWithError(ErrTransferNotComplete)
-			return ErrTransferNotComplete
-		}
 		file.Pd.Pw.Close()
 		c.log.Debug("file transfered", "filename", file.Pd.Meta.Name)
 

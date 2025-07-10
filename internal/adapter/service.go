@@ -8,28 +8,28 @@ import (
 
 func (a *Adapter) ProcessServiceMessage(msg []byte) error {
 	var (
-		offFrame    pbConnections.OfflineFrame
-		ukeyMessage pbSecuregcm.Ukey2Message
+		offFrame         pbConnections.OfflineFrame
+		ukeyMessage      pbSecuregcm.Ukey2Message
+		isServiceMessage bool
 	)
 
-	// don't care about errors here, because we don't know actual message type
-	_ = proto.Unmarshal(msg, &offFrame)
-	_ = proto.Unmarshal(msg, &ukeyMessage)
+	if offErr := proto.Unmarshal(msg, &offFrame); offErr != nil {
+		if offFrame.GetV1().GetType() == pbConnections.V1Frame_KEEP_ALIVE {
+			isServiceMessage = true
+			a.sendKeepAliveMessage()
+		}
+		if offFrame.GetV1().GetType() == pbConnections.V1Frame_DISCONNECTION {
+			return ErrConnWasEndedByClient
+		}
+	}
+	if ukeyErr := proto.Unmarshal(msg, &ukeyMessage); ukeyErr != nil {
+		if ukeyMessage.GetMessageType() == pbSecuregcm.Ukey2Message_ALERT {
+			isServiceMessage = true
+			a.logUKEYAlert(&ukeyMessage)
+		}
+	}
 
-	isKeepAlive := offFrame.GetV1().GetType() == pbConnections.V1Frame_KEEP_ALIVE
-	isDisconnection := offFrame.GetV1().GetType() == pbConnections.V1Frame_DISCONNECTION
-	isUKEYAlert := ukeyMessage.GetMessageType() == pbSecuregcm.Ukey2Message_ALERT
-	if isKeepAlive {
-		a.sendKeepAliveMessage()
-	}
-	if isUKEYAlert {
-		a.logUKEYAlert(&ukeyMessage)
-	}
-	if isDisconnection {
-		return ErrConnWasEndedByClient
-	}
-
-	if !isKeepAlive && !isUKEYAlert {
+	if !isServiceMessage {
 		return ErrNotServiceMessage
 	}
 

@@ -1,4 +1,4 @@
-package server_test
+package qserver_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/ACLzz/qshare/internal/mdns"
 	"github.com/ACLzz/qshare/internal/rand"
-	qserver "github.com/ACLzz/qshare/server"
+	"github.com/ACLzz/qshare/qserver"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/grandcat/zeroconf"
 	"github.com/stretchr/testify/assert"

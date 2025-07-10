@@ -10,8 +10,6 @@ dep:
 
 # TODO: make it work from docker run
 proto:
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-
 	mkdir -p ./$(PROTO_GEN_DIR)/securegcm
 	$(PROTO) --go_out=$(PROTO_GEN_DIR)/securegcm ./$(PROTO_DIR)/device_to_device_messages.proto ./$(PROTO_DIR)/securegcm.proto ./$(PROTO_DIR)/ukey.proto
 	
@@ -24,9 +22,14 @@ proto:
 	mkdir -p ./$(PROTO_GEN_DIR)/sharing
 	$(PROTO) --go_out=$(PROTO_GEN_DIR)/sharing ./$(PROTO_DIR)/wire_format.proto
 
+tools:
+	go install go.uber.org/mock/mockgen@latest
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install github.com/t-yuki/gocover-cobertura@latest
+
 # TODO: make it work from docker run
 mock:
-	go install go.uber.org/mock/mockgen@latest
+	mockgen -destination internal/mock/log.go -source ./log.go -package mock Logger
 
 fmt:
 	gofmt ./...
@@ -39,10 +42,11 @@ clean:
 	rm -rvf ./mocks
 
 test:
-	go test $(FLAGS) ./... -coverprofile=coverage.out
+	go test $(FLAGS) -coverprofile=coverage.out ./...
 
 ci-test:
-	CI=true go test $(FLAGS) ./... -coverprofile=coverage.out
+	CI=true go test $(FLAGS) -coverprofile=coverage.txt -covermode count ./...
+	gocover-cobertura < coverage.txt > coverage.xml
 
 test-no-cache:
 	go test $(FLAGS) -count=1 ./...

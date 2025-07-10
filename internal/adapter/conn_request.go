@@ -1,8 +1,6 @@
 package adapter
 
 import (
-	"fmt"
-
 	"github.com/ACLzz/qshare"
 	pbConnections "github.com/ACLzz/qshare/internal/protobuf/gen/connections"
 	"github.com/ACLzz/qshare/internal/rand"
@@ -29,24 +27,18 @@ func (a *Adapter) UnmarshalConnRequest(msg []byte) (ConnRequest, error) {
 }
 
 func (a *Adapter) SendConnRequest(endpointID, hostname string, device qshare.DeviceType) error {
-	endpointInfo, err := CraftEndpointInfo(a.rand, hostname, device)
-	if err != nil {
-		return fmt.Errorf("craft endpoint info: %w", err)
-	}
-
 	return a.writeOfflineFrame(&pbConnections.V1Frame{
 		Type: pbConnections.V1Frame_CONNECTION_REQUEST.Enum(),
 		ConnectionRequest: &pbConnections.ConnectionRequestFrame{
-			EndpointId: proto.String(endpointID),
-			// EndpointName: []byte(hostname + ".local"), // TODO: should we remove it?
+			EndpointId:   proto.String(endpointID),
 			EndpointName: []byte(hostname),
-			EndpointInfo: endpointInfo,
+			EndpointInfo: CraftEndpointInfo(a.rand, hostname, device),
 			Mediums:      []pbConnections.ConnectionRequestFrame_Medium{pbConnections.ConnectionRequestFrame_WIFI_LAN},
 		},
 	})
 }
 
-func CraftEndpointInfo(r rand.Random, hostname string, device qshare.DeviceType) ([]byte, error) {
+func CraftEndpointInfo(r rand.Random, hostname string, device qshare.DeviceType) []byte {
 	hostnameBytes := []byte(hostname)
 	buf := make([]byte, 1, len(hostnameBytes)+17)
 
@@ -56,5 +48,5 @@ func CraftEndpointInfo(r rand.Random, hostname string, device qshare.DeviceType)
 	buf = append(buf, byte(len(hostnameBytes)))
 	buf = append(buf, hostnameBytes...)
 
-	return buf, nil
+	return buf
 }

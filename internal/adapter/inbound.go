@@ -20,7 +20,7 @@ const (
 	MAX_TEXT_LENGTH    = 5 * 1024 * 1024 // 5Mb
 )
 
-var ErrTransferInProgress = errors.New("transfer in progress")
+var errTransferInProgress = errors.New("transfer in progress")
 
 type FileChunk struct {
 	FileID       int64
@@ -105,50 +105,55 @@ func (a *Adapter) Reader(ctx context.Context) func() ([]byte, error) {
 	)
 
 	return func() ([]byte, error) {
-		select {
-		case <-ctx.Done():
-			return nil, io.EOF
-		default:
-			// fetch length of the upcoming message
-			if _, err = io.ReadFull(a.conn, lenBuf); err != nil {
-				if errors.Is(err, io.EOF) {
-					a.log.Debug("conn ended abruptly")
-					return nil, ErrConnWasEndedByClient
-				}
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, io.EOF
+			default:
+				// fetch length of the upcoming message
+				if _, err = io.ReadFull(a.conn, lenBuf); err != nil {
+					if errors.Is(err, io.EOF) {
+						a.log.Debug("conn ended abruptly")
+						return nil, ErrConnWasEndedByClient
+					}
 
-				a.log.Error("read msg length", err)
+					a.log.Error("read msg length", err)
+					clearBuf()
+					return nil, ErrInvalidMessageLength
+				}
+				msgLen = binary.BigEndian.Uint32(lenBuf)
 				clearBuf()
-				return nil, ErrInvalidMessageLength
-			}
-			msgLen = binary.BigEndian.Uint32(lenBuf)
-			clearBuf()
 
-			if msgLen > MAX_MESSAGE_LENGTH {
-				a.log.Error("message is too long", nil, "length", msgLen)
-				return nil, ErrMessageTooLong
-			}
-
-			// fetch message in bytes
-			msgBuf := make([]byte, msgLen)
-			if _, err = io.ReadFull(a.conn, msgBuf); err != nil {
-				a.log.Error("fetch message", err)
-				return nil, ErrFetchFullMessage
-			}
-
-			// decrypt message if isEncrypted is set
-			if a.isEncrypted {
-				msgBuf, err = a.decryptMessage(msgBuf)
-				if err != nil {
-					return nil, fmt.Errorf("decrypt message: %w", err)
+				if msgLen > MAX_MESSAGE_LENGTH {
+					a.log.Error("message is too long", nil, "length", msgLen)
+					return nil, ErrMessageTooLong
 				}
-			}
 
-			msgBuf, err = handleTransfer(msgBuf)
-			if err != nil {
-				return nil, fmt.Errorf("handle transfer: %w", err)
-			}
+				// fetch message in bytes
+				msgBuf := make([]byte, msgLen)
+				if _, err = io.ReadFull(a.conn, msgBuf); err != nil {
+					a.log.Error("fetch message", err)
+					return nil, ErrFetchFullMessage
+				}
 
-			return msgBuf, nil
+				// decrypt message if isEncrypted is set
+				if a.isEncrypted {
+					msgBuf, err = a.decryptMessage(msgBuf)
+					if err != nil {
+						return nil, fmt.Errorf("decrypt message: %w", err)
+					}
+				}
+
+				msgBuf, err = handleTransfer(msgBuf)
+				if err != nil {
+					if errors.Is(err, errTransferInProgress) {
+						continue
+					}
+					return nil, fmt.Errorf("handle transfer: %w", err)
+				}
+
+				return msgBuf, nil
+			}
 		}
 	}
 }
@@ -194,7 +199,7 @@ func (a *Adapter) transferHandler() func(msg []byte) ([]byte, error) {
 				return nil, fmt.Errorf("file chunk callback: %w", err)
 			}
 			fileOffsets[header.GetId()] += int64(len(chunk.GetBody()))
-			return nil, ErrTransferInProgress
+			return nil, errTransferInProgress
 		} else if header.GetType() == pbConnections.PayloadTransferFrame_PayloadHeader_BYTES {
 			// for texts read full text and pass to the reader
 			if chunk.GetOffset() != int64(len(buf)) {
@@ -213,7 +218,7 @@ func (a *Adapter) transferHandler() func(msg []byte) ([]byte, error) {
 				}
 				return bufCopy, nil
 			}
-			return nil, ErrTransferInProgress
+			return nil, errTransferInProgress
 		}
 
 		return msg, nil

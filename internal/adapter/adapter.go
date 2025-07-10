@@ -7,7 +7,6 @@ import (
 	"github.com/ACLzz/qshare/internal/crypt"
 	pbConnections "github.com/ACLzz/qshare/internal/protobuf/gen/connections"
 	"github.com/ACLzz/qshare/internal/rand"
-	"google.golang.org/protobuf/proto"
 )
 
 type Adapter struct {
@@ -23,18 +22,17 @@ type Adapter struct {
 	textTransferCallback TextTransferCallback
 }
 
-// TODO: remove cipher from arguments and manage it internally
 func New(
 	conn net.Conn,
 	logger qshare.Logger,
-	cipher *crypt.Cipher,
+	isServer bool,
 	fileChunkCallback FileChunkCallback,
 	textTransferCallback TextTransferCallback,
 	r rand.Random,
 ) Adapter {
 	return Adapter{
 		conn:                 conn,
-		cipher:               cipher,
+		cipher:               crypt.NewCipher(isServer),
 		log:                  logger,
 		fileChunkCallback:    fileChunkCallback,
 		textTransferCallback: textTransferCallback,
@@ -57,10 +55,8 @@ func (a *Adapter) EnableTransferHandler() {
 
 func (a *Adapter) Disconnect() {
 	if err := a.writeOfflineFrame(&pbConnections.V1Frame{
-		Type: pbConnections.V1Frame_DISCONNECTION.Enum(),
-		Disconnection: &pbConnections.DisconnectionFrame{
-			AckSafeToDisconnect: proto.Bool(true),
-		},
+		Type:          pbConnections.V1Frame_DISCONNECTION.Enum(),
+		Disconnection: &pbConnections.DisconnectionFrame{},
 	}); err != nil {
 		a.log.Error("error while disconnecting", err)
 	}

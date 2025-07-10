@@ -1,4 +1,4 @@
-package server
+package qserver
 
 import (
 	"encoding/base64"
@@ -11,7 +11,7 @@ import (
 	"github.com/ACLzz/qshare/internal/ble"
 	internalLog "github.com/ACLzz/qshare/internal/log"
 	"github.com/ACLzz/qshare/internal/rand"
-	"github.com/ACLzz/qshare/server/listener"
+	"github.com/ACLzz/qshare/qserver/listener"
 
 	"tinygo.org/x/bluetooth"
 )
@@ -99,18 +99,19 @@ func (b *serverBuilder) Build(
 		return nil, fmt.Errorf("create listener: %w", err)
 	}
 
-	txtBytes, err := adapter.CraftEndpointInfo(b.rand, b.hostname, b.device)
-	if err != nil {
-		return nil, fmt.Errorf("craft endpoint info: %w", err)
-	}
-
 	return &Server{
 		bleAD:    bleAD,
 		listener: lisnr,
 		conf: serverConfig{
 			name: newName(b.endpoint),
 			port: b.port,
-			txt:  base64.RawURLEncoding.EncodeToString(txtBytes),
+			txt: base64.RawURLEncoding.EncodeToString(
+				adapter.CraftEndpointInfo(
+					b.rand,
+					b.hostname,
+					b.device,
+				),
+			),
 		},
 	}, nil
 }
@@ -217,6 +218,9 @@ func (b *serverBuilder) propDeviceType() error {
 
 func (b *serverBuilder) propLogger() error {
 	if b.isLoggerSet {
+		if b.logger == nil {
+			return ErrInvalidLogger
+		}
 		return nil
 	}
 

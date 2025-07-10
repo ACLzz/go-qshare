@@ -31,16 +31,22 @@ func (a *Adapter) writeMessage(data []byte) error {
 }
 
 func (a *Adapter) writeOfflineFrame(frame *pbConnections.V1Frame) error {
-	offlineFrame, err := proto.Marshal(&pbConnections.OfflineFrame{
-		Version: pbConnections.OfflineFrame_V1.Enum(),
-		V1:      frame,
-	})
-	if err != nil {
-		return err
-	}
-
-	if err = a.writeMessage(offlineFrame); err != nil {
-		return fmt.Errorf("write message: %w", err)
+	if a.isEncrypted {
+		err := a.encryptAndWrite(frame)
+		if err != nil {
+			return err
+		}
+	} else {
+		offlineFrame, err := proto.Marshal(&pbConnections.OfflineFrame{
+			Version: pbConnections.OfflineFrame_V1.Enum(),
+			V1:      frame,
+		})
+		if err != nil {
+			return err
+		}
+		if err = a.writeMessage(offlineFrame); err != nil {
+			return fmt.Errorf("write message: %w", err)
+		}
 	}
 
 	return nil
