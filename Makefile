@@ -25,7 +25,7 @@ proto:
 tools:
 	go install go.uber.org/mock/mockgen@latest
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	go install github.com/t-yuki/gocover-cobertura@latest
+	# go install github.com/t-yuki/gocover-cobertura@latest
 
 # TODO: make it work from docker run
 mock:
@@ -45,8 +45,9 @@ test:
 	go test $(FLAGS) -coverprofile=coverage.out ./...
 
 ci-test:
-	CI=true go test $(FLAGS) -coverprofile=coverage.txt -covermode count ./...
-	gocover-cobertura < coverage.txt > coverage.xml
+	export CI=true
+	go test $(FLAGS) -coverprofile=coverage.txt ./...
+	# gocover-cobertura < coverage.txt > coverage.xml
 
 test-no-cache:
 	go test $(FLAGS) -count=1 ./...

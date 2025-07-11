@@ -18,4 +18,3 @@ func (l Logger) Info(msg string, args ...any) {
 func (l Logger) Debug(msg string, args ...any) {
 	// do nothing
 }
-

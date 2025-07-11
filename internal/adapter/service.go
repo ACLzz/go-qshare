@@ -13,7 +13,7 @@ func (a *Adapter) ProcessServiceMessage(msg []byte) error {
 		isServiceMessage bool
 	)
 
-	if offErr := proto.Unmarshal(msg, &offFrame); offErr != nil {
+	if offErr := proto.Unmarshal(msg, &offFrame); offErr == nil {
 		if offFrame.GetV1().GetType() == pbConnections.V1Frame_KEEP_ALIVE {
 			isServiceMessage = true
 			a.sendKeepAliveMessage()
@@ -21,8 +21,7 @@ func (a *Adapter) ProcessServiceMessage(msg []byte) error {
 		if offFrame.GetV1().GetType() == pbConnections.V1Frame_DISCONNECTION {
 			return ErrConnWasEndedByClient
 		}
-	}
-	if ukeyErr := proto.Unmarshal(msg, &ukeyMessage); ukeyErr != nil {
+	} else if ukeyErr := proto.Unmarshal(msg, &ukeyMessage); ukeyErr == nil {
 		if ukeyMessage.GetMessageType() == pbSecuregcm.Ukey2Message_ALERT {
 			isServiceMessage = true
 			a.logUKEYAlert(&ukeyMessage)

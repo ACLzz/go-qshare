@@ -21,11 +21,13 @@ jobs:
       with:
         go-version: '1.24.2'
 
+    - name: Tools
+      run: make tools
+
     - name: Test
       run: make ci-test
     
-    - name: Code Coverage Summary
-      uses: irongut/CodeCoverageSummary@v1.3.0
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
       with:
-        filename: coverage.xml
-        badge: true
+        token: ${{ secrets.CODECOV_TOKEN }}

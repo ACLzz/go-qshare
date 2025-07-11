@@ -2,11 +2,13 @@ package qserver
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/ACLzz/qshare"
 	"github.com/ACLzz/qshare/internal/log"
 	"github.com/ACLzz/qshare/internal/rand"
+	"github.com/ACLzz/qshare/tests/helper"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -158,6 +160,11 @@ func TestBuilder(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			// skip tests that cannot be tested in ci
+			if helper.IsCI() && strings.Contains(name, "invalid_adapter") {
+				t.Skip()
+			}
+
 			builder := NewBuilder().
 				WithRandom(rng)
 			if tt.prepare != nil {
@@ -175,7 +182,6 @@ func TestBuilder(t *testing.T) {
 			assert.Equal(t, tt.expect.conf.name, server.conf.name)
 			assert.Equal(t, tt.expect.conf.txt, server.conf.txt)
 			assert.Greater(t, server.conf.port, 1024)
-			assert.NotNil(t, server.bleAD)
 		})
 	}
 }

@@ -12,6 +12,7 @@ import (
 	internalLog "github.com/ACLzz/qshare/internal/log"
 	"github.com/ACLzz/qshare/internal/rand"
 	"github.com/ACLzz/qshare/qserver/listener"
+	"github.com/ACLzz/qshare/tests/helper"
 
 	"tinygo.org/x/bluetooth"
 )
@@ -39,48 +40,58 @@ func NewBuilder() *serverBuilder {
 	return &serverBuilder{}
 }
 
+// Add name of your server. It will appear in servers list on client.
 func (b *serverBuilder) WithHostname(hostname string) *serverBuilder {
 	b.hostname = hostname
 	b.isHostnameSet = true
 	return b
 }
 
+// Add port of your server.
 func (b *serverBuilder) WithPort(port int) *serverBuilder {
 	b.port = port
 	b.isPortSet = true
 	return b
 }
 
+// Add endpoint for mDNS. This must be exactly 4 bytes and
+// match with a client endpoint id, if you use one.
 func (b *serverBuilder) WithEndpoint(endpoint string) *serverBuilder {
 	b.endpoint = []byte(endpoint)
 	b.isEndpointSet = true
 	return b
 }
 
+// Add bluetooth adapter of your choice.
+// Don't forget to enable it beforehand.
 func (b *serverBuilder) WithAdapter(adapter *bluetooth.Adapter) *serverBuilder {
 	b.adapter = adapter
 	b.isBluetoothAdapterSet = true
 	return b
 }
 
+// Add specific device type. Default is Unknown.
 func (b *serverBuilder) WithDeviceType(device qshare.DeviceType) *serverBuilder {
 	b.device = device
 	b.isDeviceTypeSet = true
 	return b
 }
 
+// Add your logger interface implementation to keep your logs consistent.
 func (b *serverBuilder) WithLogger(logger qshare.Logger) *serverBuilder {
 	b.logger = logger
 	b.isLoggerSet = true
 	return b
 }
 
+// WARNING: only for library internal usage
 func (b *serverBuilder) WithRandom(rng rand.Random) *serverBuilder {
 	b.rand = rng
 	b.isRandomSet = true
 	return b
 }
 
+// Build and return server if no errors occurred.
 func (b *serverBuilder) Build(
 	textCallback qshare.TextCallback,
 	fileCallback qshare.FileCallback,
@@ -89,9 +100,15 @@ func (b *serverBuilder) Build(
 		return nil, fmt.Errorf("propagate default values: %w", err)
 	}
 
-	bleAD, err := ble.NewAdvertisement(b.adapter, b.rand)
-	if err != nil {
-		return nil, fmt.Errorf("create ble advertisement: %w", err)
+	var (
+		err   error
+		bleAD *bluetooth.Advertisement
+	)
+	if !helper.IsCI() {
+		bleAD, err = ble.NewAdvertisement(b.adapter, b.rand)
+		if err != nil {
+			return nil, fmt.Errorf("create ble advertisement: %w", err)
+		}
 	}
 
 	lisnr, err := listener.New(b.port, b.logger, textCallback, fileCallback, b.rand)
@@ -122,7 +139,7 @@ func (b *serverBuilder) propagateDefaultValues() error {
 	funcs := []propagateValueFn{
 		b.propHostname,
 		b.propPort,
-		b.propBluAdapter,
+		b.propAdapter,
 		b.propEndpoint,
 		b.propDeviceType,
 		b.propLogger,
@@ -176,7 +193,7 @@ func (b *serverBuilder) propPort() error {
 	return nil
 }
 
-func (b *serverBuilder) propBluAdapter() error {
+func (b *serverBuilder) propAdapter() error {
 	if b.isBluetoothAdapterSet {
 		if b.adapter == nil {
 			return ErrInvalidAdapter
@@ -184,11 +201,11 @@ func (b *serverBuilder) propBluAdapter() error {
 	} else {
 		b.adapter = bluetooth.DefaultAdapter
 	}
-
-	if err := b.adapter.Enable(); err != nil {
-		return fmt.Errorf("%w: enable bluetooth adapter: %w", ErrInvalidAdapter, err)
+	if !helper.IsCI() {
+		if err := b.adapter.Enable(); err != nil {
+			return fmt.Errorf("%w: enable bluetooth adapter: %w", ErrInvalidAdapter, err)
+		}
 	}
-
 	return nil
 }
 

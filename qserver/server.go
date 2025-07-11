@@ -6,6 +6,7 @@ import (
 
 	"github.com/ACLzz/qshare/internal/mdns"
 	"github.com/ACLzz/qshare/qserver/listener"
+	"github.com/ACLzz/qshare/tests/helper"
 	"github.com/grandcat/zeroconf"
 	"tinygo.org/x/bluetooth"
 )
@@ -53,8 +54,11 @@ func (s *Server) listen() error {
 
 	go s.listener.Listen()
 
-	if err := s.bleAD.Start(); err != nil {
-		return fmt.Errorf("start ble advertisement: %w", err)
+	// skip ble advertisement start for ci
+	if !helper.IsCI() {
+		if err := s.bleAD.Start(); err != nil {
+			return fmt.Errorf("start ble advertisement: %w", err)
+		}
 	}
 
 	return nil
@@ -70,7 +74,8 @@ func (s *Server) Stop() error {
 		gErr = fmt.Errorf("%w: stop listener: %w", gErr, err)
 	}
 
-	if s.bleAD != nil {
+	// skip ble advertisement stop for ci
+	if !helper.IsCI() {
 		if err = s.bleAD.Stop(); err != nil && !strings.Contains(err.Error(), "advertisement is not started") {
 			gErr = fmt.Errorf("%w: stop ble advertisement: %w", gErr, err)
 		}

@@ -72,7 +72,9 @@ func (c *connection) route(msg []byte) {
 
 		// notify client if message was invalid
 		if errors.Is(err, adapter.ErrInvalidMessage) {
-			c.adapter.SendBadMessageError()
+			if c.nextExpectedMessage <= conn_response {
+				c.adapter.SendBadMessageError()
+			}
 			c.log.Warn("got invalid message", "expectedMessage", c.nextExpectedMessage)
 			return
 		}

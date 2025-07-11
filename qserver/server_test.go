@@ -9,6 +9,7 @@ import (
 	"github.com/ACLzz/qshare/internal/mdns"
 	"github.com/ACLzz/qshare/internal/rand"
 	"github.com/ACLzz/qshare/qserver"
+	"github.com/ACLzz/qshare/tests/helper"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/grandcat/zeroconf"
 	"github.com/stretchr/testify/assert"
@@ -48,13 +49,13 @@ func TestServer_mDNS(t *testing.T) {
 		machineHostname, err := os.Hostname()
 		require.NoError(t, err)
 
-		hostname := "test_hostname"
-		port := 6666
+		hostname := string(rand.AlphaNum(rand.NewCrypt(), 5))
+		port := helper.RandomPort()
 
 		server, err := qserver.NewBuilder().
+			WithRandom(rng).
 			WithHostname(hostname).
 			WithPort(port).
-			WithRandom(rng).
 			Build(nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
@@ -74,6 +75,7 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, server.Listen())
 		t.Cleanup(func() {
 			require.NoError(t, server.Stop())
+			helper.WaitForMDNSTTL(t)
 		})
 
 		select {
@@ -81,7 +83,7 @@ func TestServer_mDNS(t *testing.T) {
 			assert.Equal(t, machineHostname+".local.", entry.HostName)
 			assert.Equal(t, port, entry.Port)
 		case <-time.After(3 * time.Second):
-			t.Fail()
+			t.Error("no entries was found in dedicated time")
 		}
 	})
 
@@ -110,6 +112,7 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, server.Listen())
 		t.Cleanup(func() {
 			require.NoError(t, server.Stop())
+			helper.WaitForMDNSTTL(t)
 		})
 
 		select {
@@ -123,7 +126,7 @@ func TestServer_mDNS(t *testing.T) {
 }
 
 func TestServer_bleAdvertisements(t *testing.T) {
-	if os.Getenv("CI") != "" {
+	if helper.IsCI() {
 		t.Skip()
 	}
 	rng := rand.NewStatic(1746361391)

@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/ACLzz/qshare"
-	"github.com/ACLzz/qshare/qclient/conn"
 	"github.com/ACLzz/qshare/internal/mdns"
 	"github.com/ACLzz/qshare/internal/rand"
+	"github.com/ACLzz/qshare/qclient/conn"
 	"github.com/grandcat/zeroconf"
 )
 
