@@ -22,10 +22,15 @@ jobs:
         go-version: '1.24.2'
 
     - name: Tools
-      run: make tools
+      run: make ci-tools
 
-    - name: Lint
-      run: make lint
+    - name: Mocks
+      run: make mock
+
+    - name: Linter
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: v2.1
 
     - name: Test
       run: make ci-test

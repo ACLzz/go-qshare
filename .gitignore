@@ -1,7 +1,7 @@
 __debug*
 .vscode
 protobuf/*
-mocks
+mock
 TODO.md
 coverage.out
 

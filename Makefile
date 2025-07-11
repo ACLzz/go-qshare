@@ -8,7 +8,6 @@ PROTO = protoc \
 dep:
 	go mod tidy
 
-# TODO: make it work from docker run
 proto:
 	mkdir -p ./$(PROTO_GEN_DIR)/securegcm
 	$(PROTO) --go_out=$(PROTO_GEN_DIR)/securegcm ./$(PROTO_DIR)/device_to_device_messages.proto ./$(PROTO_DIR)/securegcm.proto ./$(PROTO_DIR)/ukey.proto
@@ -25,28 +24,30 @@ proto:
 tools:
 	go install go.uber.org/mock/mockgen@latest
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-
-# TODO: make it work from docker run
-mock:
-	mockgen -destination internal/mock/log.go -source ./log.go -package mock Logger
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.2.1
 
 fmt:
 	go fmt ./...
 
 lint:
-	docker run --rm -v `pwd`:/app -w /app golangci/golangci-lint:v2.1.6 golangci-lint run
-
-clean:
-	rm -rfv ./$(PROTO_GEN_DIR)
-	rm -rvf ./mocks
+	golangci-lint run
+	
+mock:
+	mockgen -destination internal/mock/log.go -source ./log.go -package mock Logger
 
 test:
 	go test $(FLAGS) -coverprofile=coverage.out ./...
+
+test-no-cache:
+	go test $(FLAGS) -count=1 ./...
+
+ci-tools:
+	go install go.uber.org/mock/mockgen@latest
 
 ci-test:
 	export CI=true
 	go test $(FLAGS) -coverprofile=coverage.txt ./...
 
-test-no-cache:
-	go test $(FLAGS) -count=1 ./...
-
+clean:
+	rm -rfv ./$(PROTO_GEN_DIR)
+	rm -rvf ./internal/mock
