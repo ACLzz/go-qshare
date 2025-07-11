@@ -24,6 +24,9 @@ jobs:
     - name: Tools
       run: make tools
 
+    - name: Lint
+      run: make lint
+
     - name: Test
       run: make ci-test
     

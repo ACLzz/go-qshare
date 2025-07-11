@@ -25,17 +25,16 @@ proto:
 tools:
 	go install go.uber.org/mock/mockgen@latest
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	# go install github.com/t-yuki/gocover-cobertura@latest
 
 # TODO: make it work from docker run
 mock:
 	mockgen -destination internal/mock/log.go -source ./log.go -package mock Logger
 
 fmt:
-	gofmt ./...
+	go fmt ./...
 
 lint:
-	docker run --rm -v $(pwd):/app -w /app golangci/golangci-lint:v2.1.6 golangci-lint run
+	docker run --rm -v `pwd`:/app -w /app golangci/golangci-lint:v2.1.6 golangci-lint run
 
 clean:
 	rm -rfv ./$(PROTO_GEN_DIR)
@@ -47,7 +46,6 @@ test:
 ci-test:
 	export CI=true
 	go test $(FLAGS) -coverprofile=coverage.txt ./...
-	# gocover-cobertura < coverage.txt > coverage.xml
 
 test-no-cache:
 	go test $(FLAGS) -count=1 ./...
