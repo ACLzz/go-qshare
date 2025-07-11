@@ -11,8 +11,8 @@ import (
 	"github.com/ACLzz/qshare/internal/ble"
 	internalLog "github.com/ACLzz/qshare/internal/log"
 	"github.com/ACLzz/qshare/internal/rand"
+	"github.com/ACLzz/qshare/internal/tests/helper"
 	"github.com/ACLzz/qshare/qserver/listener"
-	"github.com/ACLzz/qshare/tests/helper"
 
 	"tinygo.org/x/bluetooth"
 )

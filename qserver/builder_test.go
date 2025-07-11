@@ -8,7 +8,7 @@ import (
 	"github.com/ACLzz/qshare"
 	"github.com/ACLzz/qshare/internal/log"
 	"github.com/ACLzz/qshare/internal/rand"
-	"github.com/ACLzz/qshare/tests/helper"
+	"github.com/ACLzz/qshare/internal/tests/helper"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

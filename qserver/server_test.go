@@ -8,8 +8,8 @@ import (
 
 	"github.com/ACLzz/qshare/internal/mdns"
 	"github.com/ACLzz/qshare/internal/rand"
+	"github.com/ACLzz/qshare/internal/tests/helper"
 	"github.com/ACLzz/qshare/qserver"
-	"github.com/ACLzz/qshare/tests/helper"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/grandcat/zeroconf"
 	"github.com/stretchr/testify/assert"

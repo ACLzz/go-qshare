@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/ACLzz/qshare/internal/mdns"
+	"github.com/ACLzz/qshare/internal/tests/helper"
 	"github.com/ACLzz/qshare/qserver/listener"
-	"github.com/ACLzz/qshare/tests/helper"
 	"github.com/grandcat/zeroconf"
 	"tinygo.org/x/bluetooth"
 )

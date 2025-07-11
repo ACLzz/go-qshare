@@ -10,7 +10,7 @@ import (
 	"github.com/ACLzz/qshare/internal/adapter"
 	"github.com/ACLzz/qshare/internal/log"
 	logMock "github.com/ACLzz/qshare/internal/mock"
-	"github.com/ACLzz/qshare/tests/helper"
+	"github.com/ACLzz/qshare/internal/tests/helper"
 
 	pbSecuregcm "github.com/ACLzz/qshare/internal/protobuf/gen/securegcm"
 	"github.com/ACLzz/qshare/internal/rand"
