@@ -9,7 +9,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (c *Cipher) Decrypt(hb *pbSecureMessage.HeaderAndBody) (*pbSecuregcm.DeviceToDeviceMessage, error) {
+func (c *Cipher) Decrypt(
+	hb *pbSecureMessage.HeaderAndBody,
+) (*pbSecuregcm.DeviceToDeviceMessage, error) {
 	body := make([]byte, len(hb.GetBody()))
 	dec := cipher.NewCBCDecrypter(c.decryptBlock, hb.GetHeader().GetIv())
 	dec.CryptBlocks(body, hb.GetBody())

@@ -30,7 +30,13 @@ type Config struct {
 	DeviceType qshare.DeviceType
 }
 
-func NewConnection(conn net.Conn, logger qshare.Logger, cfg Config, wg *sync.WaitGroup, r rand.Random) Connection {
+func NewConnection(
+	conn net.Conn,
+	logger qshare.Logger,
+	cfg Config,
+	wg *sync.WaitGroup,
+	r rand.Random,
+) Connection {
 	return Connection{
 		conn:    conn,
 		log:     logger,

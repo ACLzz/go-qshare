@@ -16,12 +16,14 @@ func (a *Adapter) UnmarshalConnResponse(msg []byte) (ConnResponse, error) {
 		return ConnResponse{}, err
 	}
 
-	if frame.GetType() != pbConnections.V1Frame_CONNECTION_RESPONSE || frame.GetConnectionResponse() == nil {
+	if frame.GetType() != pbConnections.V1Frame_CONNECTION_RESPONSE ||
+		frame.GetConnectionResponse() == nil {
 		return ConnResponse{}, ErrInvalidMessage
 	}
 
+	response := frame.GetConnectionResponse().GetResponse()
 	return ConnResponse{
-		IsConnAccepted: frame.GetConnectionResponse().GetResponse() == pbConnections.ConnectionResponseFrame_ACCEPT,
+		IsConnAccepted: response == pbConnections.ConnectionResponseFrame_ACCEPT,
 	}, nil
 }
 

@@ -2,7 +2,12 @@ version: "2"
 
 linters:
   default: standard
-  # exclusion:
-  #   rules:
-  #     - path: _test\.go
-  #       linters
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - golines
+
+issues:
+  max-same-issues: 50

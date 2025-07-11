@@ -26,6 +26,7 @@ const (
 	secretLabel = "UKEY2 v1 next"
 )
 
+//nolint:golines
 var (
 	d2dSalt = must(hex.DecodeString("82AA55A0D397F88346CA1CEE8D3909B95F13FA7DEB1D4AB38376B8256DA85510"))
 	encSalt = must(hex.DecodeString("BF9D2A53C63616D75DB0A7165B91C1EF73E537F2427405FA23610A4BE657642E"))
@@ -105,7 +106,10 @@ func (c *Cipher) SetSenderPublicKey(key *pbSecureMessage.EcP256PublicKey) error 
 }
 
 func (c *Cipher) validate() bool {
-	return len(c.senderInitMsg) > 0 && len(c.receiverInitMsg) > 0 && c.receiverPrivateKey != nil && c.senderPublicKey != nil
+	return len(c.senderInitMsg) > 0 &&
+		len(c.receiverInitMsg) > 0 &&
+		c.receiverPrivateKey != nil &&
+		c.senderPublicKey != nil
 }
 
 func (c *Cipher) craftD2DKeys() ([]byte, []byte, error) {

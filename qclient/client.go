@@ -40,7 +40,11 @@ func (c *Client) ListServers(ctx context.Context) (chan ServerInstance, error) {
 	return outputCh, nil
 }
 
-func (c *Client) listServersWorker(ctx context.Context, entriesCh chan *zeroconf.ServiceEntry, outputCh chan ServerInstance) {
+func (c *Client) listServersWorker(
+	ctx context.Context,
+	entriesCh chan *zeroconf.ServiceEntry,
+	outputCh chan ServerInstance,
+) {
 	var entry *zeroconf.ServiceEntry
 	defer close(entriesCh)
 	defer close(outputCh)
@@ -81,7 +85,11 @@ func (c *Client) SendText(ctx context.Context, instance ServerInstance, text str
 	return nil
 }
 
-func (c *Client) SendFiles(ctx context.Context, instance ServerInstance, files []qshare.FilePayload) error {
+func (c *Client) SendFiles(
+	ctx context.Context,
+	instance ServerInstance,
+	files []qshare.FilePayload,
+) error {
 	cn, err := c.newConn(instance)
 	if err != nil {
 		return fmt.Errorf("create connection: %w", err)

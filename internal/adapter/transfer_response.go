@@ -14,7 +14,8 @@ func (a *Adapter) UnmarshalTransferResponse(msg []byte) (bool, error) {
 		return false, ErrInvalidMessage
 	}
 
-	return frame.GetConnectionResponse().GetStatus() == pbSharing.ConnectionResponseFrame_ACCEPT, nil
+	status := frame.GetConnectionResponse().GetStatus()
+	return status == pbSharing.ConnectionResponseFrame_ACCEPT, nil
 }
 
 func (a *Adapter) SendTransferResponse(isAccepted bool) error {

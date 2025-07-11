@@ -9,11 +9,8 @@ To work with android devices (which is the main goal of this project) you need t
 `make test`
 
 ## TODO
-- CI/CD Pipeline
-- CI/CD Widget
 - Refactor all TODOs in codebase
 - Add more tests
-- Better library incapsulation
 - Usage example in README
 - Docs
 - Security review

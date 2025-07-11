@@ -17,7 +17,8 @@ func (a *Adapter) UnmarshalConnRequest(msg []byte) (ConnRequest, error) {
 		return ConnRequest{}, err
 	}
 
-	if frame.GetType() != pbConnections.V1Frame_CONNECTION_REQUEST || frame.GetConnectionRequest() == nil {
+	if frame.GetType() != pbConnections.V1Frame_CONNECTION_REQUEST ||
+		frame.GetConnectionRequest() == nil {
 		return ConnRequest{}, ErrInvalidMessage
 	}
 
@@ -33,7 +34,9 @@ func (a *Adapter) SendConnRequest(endpointID, hostname string, device qshare.Dev
 			EndpointId:   proto.String(endpointID),
 			EndpointName: []byte(hostname),
 			EndpointInfo: CraftEndpointInfo(a.rand, hostname, device),
-			Mediums:      []pbConnections.ConnectionRequestFrame_Medium{pbConnections.ConnectionRequestFrame_WIFI_LAN},
+			Mediums: []pbConnections.ConnectionRequestFrame_Medium{
+				pbConnections.ConnectionRequestFrame_WIFI_LAN,
+			},
 		},
 	})
 }

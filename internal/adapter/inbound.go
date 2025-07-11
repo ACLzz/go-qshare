@@ -177,7 +177,8 @@ func (a *Adapter) transferHandler() func(msg []byte) ([]byte, error) {
 			return msg, nil // ignore non-offline frames
 		}
 
-		if frame.GetType() != pbConnections.V1Frame_PAYLOAD_TRANSFER || frame.GetPayloadTransfer() == nil {
+		if frame.GetType() != pbConnections.V1Frame_PAYLOAD_TRANSFER ||
+			frame.GetPayloadTransfer() == nil {
 			return msg, nil // ignore non-payload transfer frames
 		}
 

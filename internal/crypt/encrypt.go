@@ -13,7 +13,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (c *Cipher) Encrypt(d2dMsg *pbSecuregcm.DeviceToDeviceMessage) (*pbSecureMessage.HeaderAndBody, error) {
+func (c *Cipher) Encrypt(
+	d2dMsg *pbSecuregcm.DeviceToDeviceMessage,
+) (*pbSecureMessage.HeaderAndBody, error) {
 	msg, err := proto.Marshal(d2dMsg)
 	if err != nil {
 		return nil, fmt.Errorf("marshal device to device message: %w", err)

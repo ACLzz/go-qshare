@@ -76,7 +76,8 @@ func (s *Server) Stop() error {
 
 	// skip ble advertisement stop for ci
 	if !helper.IsCI() {
-		if err = s.bleAD.Stop(); err != nil && !strings.Contains(err.Error(), "advertisement is not started") {
+		if err = s.bleAD.Stop(); err != nil &&
+			!strings.Contains(err.Error(), "advertisement is not started") {
 			gErr = fmt.Errorf("%w: stop ble advertisement: %w", gErr, err)
 		}
 	}
