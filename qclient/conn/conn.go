@@ -238,19 +238,17 @@ func (c *Connection) SetupTransfer(ctx context.Context) error {
 }
 
 func (c *Connection) read(read func() ([]byte, error)) ([]byte, error) {
-	for {
-		msg, err := read()
-		if err != nil {
-			if errors.Is(err, io.EOF) || errors.Is(err, adapter.ErrMessageTooLong) {
-				c.adapter.Disconnect()
-			} else if errors.Is(err, adapter.ErrOffsetMismatch) {
-				c.adapter.SendBadMessageError()
-			}
-
-			c.log.Error("read message", err)
-			return nil, err
+	msg, err := read()
+	if err != nil {
+		if errors.Is(err, io.EOF) || errors.Is(err, adapter.ErrMessageTooLong) {
+			c.adapter.Disconnect()
+		} else if errors.Is(err, adapter.ErrOffsetMismatch) {
+			c.adapter.SendBadMessageError()
 		}
 
-		return msg, nil
+		c.log.Error("read message", err)
+		return nil, err
 	}
+
+	return msg, nil
 }

@@ -106,8 +106,8 @@ func generatePrivatePublicKeys() (*ecdsa.PrivateKey, []byte, error) {
 	pbPublicKey, err := proto.Marshal(&pbSecureMessage.GenericPublicKey{
 		Type: pbSecureMessage.PublicKeyType_EC_P256.Enum(),
 		EcP256PublicKey: &pbSecureMessage.EcP256PublicKey{
-			X: privateKey.PublicKey.X.FillBytes(make([]byte, 33)),
-			Y: privateKey.PublicKey.Y.FillBytes(make([]byte, 33)),
+			X: privateKey.X.FillBytes(make([]byte, 33)),
+			Y: privateKey.Y.FillBytes(make([]byte, 33)),
 		},
 	})
 	if err != nil {

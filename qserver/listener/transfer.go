@@ -64,7 +64,9 @@ func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {
 	}
 
 	if chunk.IsFinalChunk {
-		file.Pd.Pw.Close()
+		if err := file.Pd.Pw.Close(); err != nil {
+			c.log.Error("close file pipe writer", err)
+		}
 		c.log.Debug("file transfered", "filename", file.Pd.Meta.Name)
 
 		c.receivedPayloads++

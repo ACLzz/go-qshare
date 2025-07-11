@@ -138,7 +138,7 @@ func TestServer_bleAdvertisements(t *testing.T) {
 		t.Cleanup(patches.Reset)
 		patches.ApplyMethodFunc(bluetooth.DefaultAdapter, "Enable", func() error {
 			patches.Reset()
-			bluetooth.DefaultAdapter.Enable()
+			require.NoError(t, bluetooth.DefaultAdapter.Enable())
 			isAdapterStarted = true
 			return nil
 		})

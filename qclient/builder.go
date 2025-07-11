@@ -7,15 +7,12 @@ import (
 	"github.com/ACLzz/qshare"
 	internalLog "github.com/ACLzz/qshare/internal/log"
 	"github.com/ACLzz/qshare/internal/rand"
-	"tinygo.org/x/bluetooth"
 )
 
 type clientBuilder struct {
-	rand    rand.Random
-	adapter *bluetooth.Adapter
-	device  qshare.DeviceType
-	logger  qshare.Logger
-	// TODO: add hostname
+	rand   rand.Random
+	device qshare.DeviceType
+	logger qshare.Logger
 
 	isLoggerSet     bool
 	isRandomSet     bool

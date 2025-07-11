@@ -2,6 +2,7 @@ package qclient
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"sync"
@@ -47,7 +48,15 @@ func (c *Client) listServersWorker(ctx context.Context, entriesCh chan *zeroconf
 	for {
 		select {
 		case entry = <-entriesCh:
-			outputCh <- newServerInstance(entry)
+			endpoint, err := base64.RawURLEncoding.DecodeString(entry.Instance)
+			if err != nil {
+				c.log.Error("decode server instance endpoint", err)
+			}
+			outputCh <- ServerInstance{
+				entry:    entry,
+				endpoint: string(endpoint),
+				Hostname: entry.HostName,
+			}
 			continue
 		case <-ctx.Done():
 			return

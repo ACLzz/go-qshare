@@ -66,7 +66,7 @@ func TestServer_ConnectionInit(t *testing.T) {
 				connResp, err := adp.UnmarshalConnResponse(resp)
 				require.NoError(t, err)
 				require.True(t, connResp.IsConnAccepted)
-				adp.EnableEncryption()
+				require.NoError(t, adp.EnableEncryption())
 
 				require.NoError(t, adp.SendPairedKeyEncryption())
 				resp, err = read()
@@ -153,7 +153,7 @@ func TestServer_ConnectionInit(t *testing.T) {
 				connResp, err := adp.UnmarshalConnResponse(resp)
 				require.NoError(t, err)
 				require.True(t, connResp.IsConnAccepted)
-				adp.EnableEncryption()
+				require.NoError(t, adp.EnableEncryption())
 
 				require.NoError(t, adp.SendPairedKeyResult())
 			},
