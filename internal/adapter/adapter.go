@@ -49,6 +49,14 @@ func (a *Adapter) EnableEncryption() error {
 	return nil
 }
 
+func (a *Adapter) Pin() uint16 {
+	if !a.isEncrypted {
+		return 0
+	}
+
+	return a.cipher.Pin()
+}
+
 func (a *Adapter) EnableTransferHandler() {
 	a.isTransfer = true
 }

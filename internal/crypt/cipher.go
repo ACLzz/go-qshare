@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"math"
 	"math/big"
 
 	pbSecureMessage "github.com/ACLzz/qshare/internal/protobuf/gen/securemessage"
@@ -23,6 +24,7 @@ import (
 */
 
 const (
+	authLabel   = "UKEY2 v1 auth"
 	secretLabel = "UKEY2 v1 next"
 )
 
@@ -38,6 +40,7 @@ type Cipher struct {
 	receiverInitMsg []byte
 	senderInitMsg   []byte
 
+	authPin            uint16
 	senderHMAC         hash.Hash
 	receiverHMAC       hash.Hash
 	receiverPrivateKey *ecdh.PrivateKey
@@ -122,28 +125,30 @@ func (c *Cipher) craftD2DKeys() ([]byte, []byte, error) {
 
 	// derive connection hash
 	var senderInfo, receiverInfo string
-	var connSecret []byte
+	var ukeyInfo []byte
 	if c.isServer {
 		senderInfo, receiverInfo = "client", "server"
-		ukeyInfo := make([]byte, len(c.receiverInitMsg)+len(c.senderInitMsg))
+		ukeyInfo = make([]byte, len(c.receiverInitMsg)+len(c.senderInitMsg))
 		copy(ukeyInfo, c.senderInitMsg)
 		copy(ukeyInfo[len(c.senderInitMsg):], c.receiverInitMsg)
-
-		connSecret, err = hkdfExtractExpand(secretHash[:], []byte(secretLabel), string(ukeyInfo))
-		if err != nil {
-			return nil, nil, fmt.Errorf("generate connection secret: %w", err)
-		}
 	} else {
 		senderInfo, receiverInfo = "server", "client"
-		ukeyInfo := make([]byte, len(c.receiverInitMsg)+len(c.senderInitMsg))
+		ukeyInfo = make([]byte, len(c.receiverInitMsg)+len(c.senderInitMsg))
 		copy(ukeyInfo, c.receiverInitMsg)
 		copy(ukeyInfo[len(c.receiverInitMsg):], c.senderInitMsg)
-
-		connSecret, err = hkdfExtractExpand(secretHash[:], []byte(secretLabel), string(ukeyInfo))
-		if err != nil {
-			return nil, nil, fmt.Errorf("generate connection secret: %w", err)
-		}
 	}
+
+	connSecret, err := hkdfExtractExpand(secretHash[:], []byte(secretLabel), string(ukeyInfo))
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate connection secret: %w", err)
+	}
+
+	// derive auth code
+	authSecret, err := hkdfExtractExpand(secretHash[:], []byte(authLabel), string(ukeyInfo))
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate authentication secret: %w", err)
+	}
+	c.authPin = authSecretToPin(authSecret)
 
 	// derive device to device keys
 	d2dSenderKey, err := hkdfExtractExpand(connSecret, d2dSalt, senderInfo)
@@ -230,6 +235,10 @@ func (c *Cipher) Sign(data []byte) []byte {
 	return c.receiverHMAC.Sum(nil)
 }
 
+func (c *Cipher) Pin() uint16 {
+	return c.authPin
+}
+
 func hkdfExtractExpand(key, salt []byte, info string) ([]byte, error) {
 	extKey, err := hkdf.Extract(sha256.New, key, salt)
 	if err != nil {
@@ -250,4 +259,20 @@ func must[T any](retValue T, err error) T {
 	}
 
 	return retValue
+}
+
+const (
+	hash_mod       = 9973
+	hash_base_mult = 31
+)
+
+func authSecretToPin(secret []byte) uint16 {
+	hash := 0
+	mult := 1
+	for _, b := range secret {
+		hash = (hash + int(int8(b))*mult) % hash_mod
+		mult = (mult * hash_base_mult) % hash_mod
+	}
+
+	return uint16(math.Abs(float64(hash)))
 }

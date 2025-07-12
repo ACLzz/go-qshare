@@ -42,7 +42,16 @@ func (c *connection) processTransferRequest(msg []byte) error {
 		return err
 	}
 
-	return c.adapter.SendTransferResponse(true)
+	files := []qshare.FileMeta{}
+	for id := range c.filePayloads {
+		files = append(files, c.filePayloads[id].Pd.Meta)
+	}
+
+	return c.adapter.SendTransferResponse(c.authCallback(
+		&c.textMeta.TextMeta,
+		files,
+		c.adapter.Pin(),
+	))
 }
 
 func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {

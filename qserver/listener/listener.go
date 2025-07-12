@@ -14,6 +14,7 @@ type Listener struct {
 	sock         net.Listener
 	wg           *sync.WaitGroup
 	log          qshare.Logger
+	authCallback qshare.AuthCallback
 	textCallback qshare.TextCallback
 	fileCallback qshare.FileCallback
 	stopCh       chan struct{}
@@ -23,6 +24,7 @@ type Listener struct {
 func New(
 	port int,
 	log qshare.Logger,
+	authCallback qshare.AuthCallback,
 	textCallback qshare.TextCallback,
 	fileCallback qshare.FileCallback,
 	r rand.Random,
@@ -36,6 +38,7 @@ func New(
 		sock:         sock,
 		wg:           &sync.WaitGroup{},
 		log:          log,
+		authCallback: authCallback,
 		textCallback: textCallback,
 		fileCallback: fileCallback,
 		stopCh:       make(chan struct{}, 1),
@@ -67,7 +70,7 @@ func (l Listener) Listen() {
 		}
 
 		l.wg.Add(1)
-		c := newConnection(ctx, conn, l.log, l.textCallback, l.fileCallback, l.rand)
+		c := newConnection(ctx, conn, l.log, l.authCallback, l.textCallback, l.fileCallback, l.rand)
 		go c.Accept(l.wg) // TODO: maybe limit amount of gorutines here
 	}
 }

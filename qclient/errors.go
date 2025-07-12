@@ -10,4 +10,5 @@ var (
 
 var (
 	ErrInvalidServerInstance = errors.New("invalid server instance")
+	ErrInvalidTextType       = errors.New("text type cannot be unknown")
 )

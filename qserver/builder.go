@@ -93,6 +93,7 @@ func (b *serverBuilder) WithRandom(rng rand.Random) *serverBuilder {
 
 // Build and return server if no errors occurred.
 func (b *serverBuilder) Build(
+	authCallback qshare.AuthCallback,
 	textCallback qshare.TextCallback,
 	fileCallback qshare.FileCallback,
 ) (*Server, error) {
@@ -111,7 +112,14 @@ func (b *serverBuilder) Build(
 		}
 	}
 
-	lisnr, err := listener.New(b.port, b.logger, textCallback, fileCallback, b.rand)
+	lisnr, err := listener.New(
+		b.port,
+		b.logger,
+		authCallback,
+		textCallback,
+		fileCallback,
+		b.rand,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create listener: %w", err)
 	}

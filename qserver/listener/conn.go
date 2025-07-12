@@ -31,6 +31,7 @@ type connection struct {
 	filePayloads     map[int64]*filePayload
 	expectedPayloads int
 	receivedPayloads int
+	authCallback     qshare.AuthCallback
 	textCallback     qshare.TextCallback
 	fileCallback     qshare.FileCallback
 }
@@ -39,6 +40,7 @@ func newConnection(
 	ctx context.Context,
 	conn net.Conn,
 	logger qshare.Logger,
+	authCallback qshare.AuthCallback,
 	textCallback qshare.TextCallback,
 	fileCallback qshare.FileCallback,
 	r rand.Random,
@@ -51,6 +53,7 @@ func newConnection(
 		log:                 logger,
 		nextExpectedMessage: conn_request,
 		phase:               init_phase,
+		authCallback:        authCallback,
 		textCallback:        textCallback,
 		fileCallback:        fileCallback,
 	}

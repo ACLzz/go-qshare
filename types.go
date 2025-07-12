@@ -25,6 +25,10 @@ const (
 	TextPhoneNumber
 )
 
+func (t TextType) IsUnknown() bool {
+	return t == TextUnknown || t > TextPhoneNumber
+}
+
 type (
 	TextMeta struct {
 		Type  TextType
@@ -64,5 +68,5 @@ type (
 type (
 	TextCallback func(payload TextPayload)
 	FileCallback func(payload FilePayload)
-	AuthCallback func(text *TextMeta, files []FileMeta, pin string) bool
+	AuthCallback func(text *TextMeta, files []FileMeta, pin uint16) bool
 )

@@ -2,7 +2,6 @@ package qclient
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/ACLzz/qshare"
 	internalLog "github.com/ACLzz/qshare/internal/log"
@@ -47,7 +46,6 @@ func (b *clientBuilder) Build(adEndpointID string) (*Client, error) {
 	}
 
 	return &Client{
-		wg:         &sync.WaitGroup{},
 		log:        b.logger,
 		endpointID: adEndpointID,
 		rand:       b.rand,
