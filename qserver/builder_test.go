@@ -17,12 +17,6 @@ import (
 
 func TestBuilder(t *testing.T) {
 	rng := rand.NewStatic(1746361391)
-	hostname := "test_hostname"
-	patches := gomonkey.NewPatches()
-	patches.ApplyFunc(os.Hostname, func() (string, error) {
-		return hostname, nil
-	})
-	t.Cleanup(patches.Reset)
 	logger := log.NewLogger()
 
 	type (
@@ -46,6 +40,14 @@ func TestBuilder(t *testing.T) {
 					name: "I2FhYWH8n14AAA",
 					txt:  "AC8vLy8vLy8vLy8vLy8vLy8NdGVzdF9ob3N0bmFtZQ",
 				},
+			},
+			prepare: func(t *testing.T, b *serverBuilder) {
+				hostname := "test_hostname"
+				patches := gomonkey.NewPatches()
+				patches.ApplyFunc(os.Hostname, func() (string, error) {
+					return hostname, nil
+				})
+				t.Cleanup(patches.Reset)
 			},
 		},
 		"success/custom_values": {

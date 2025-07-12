@@ -1,4 +1,4 @@
-FLAGS = -gcflags=all=-l -parallel=1
+TEST_FLAGS = -coverpkg=./... -gcflags=all=-l -parallel=1
 PROTO_DIR = internal/protobuf
 PROTO_GEN_DIR = $(PROTO_DIR)/gen
 PROTO = protoc \
@@ -31,22 +31,22 @@ fmt:
 
 lint:
 	golangci-lint run
-	
+
 mock:
 	mockgen -destination internal/mock/log.go -source ./log.go -package mock Logger
 
 test:
-	go test $(FLAGS) -coverprofile=coverage.out ./...
+	go test $(TEST_FLAGS) -coverprofile=coverage.out ./...
 
 test-no-cache:
-	go test $(FLAGS) -count=1 ./...
+	go test $(TEST_FLAGS) -count=1 ./...
 
 ci-tools:
 	go install go.uber.org/mock/mockgen@latest
 
 ci-test:
 	export CI=true
-	go test $(FLAGS) -coverprofile=coverage.txt ./...
+	go test $(TEST_FLAGS) -coverprofile=coverage.txt ./...
 
 clean:
 	rm -rfv ./$(PROTO_GEN_DIR)

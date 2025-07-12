@@ -51,7 +51,6 @@ func TestServer_ConnectionInit(t *testing.T) {
 				log.EXPECT().Debug(gomock.Any(), gomock.Any()).AnyTimes()
 			},
 			assert: func(t *testing.T, ctx context.Context, adp *adapter.Adapter) {
-				t.Helper()
 				read := adp.Reader(ctx)
 
 				require.NoError(t, adp.SendConnRequest(endpoint, hostname, qshare.LaptopDevice))
@@ -92,7 +91,6 @@ func TestServer_ConnectionInit(t *testing.T) {
 				}))
 			},
 			assert: func(t *testing.T, ctx context.Context, adp *adapter.Adapter) {
-				t.Helper()
 				read := adp.Reader(ctx)
 
 				require.NoError(t, adp.SendConnResponse(true))
@@ -115,7 +113,6 @@ func TestServer_ConnectionInit(t *testing.T) {
 				}))
 			},
 			assert: func(t *testing.T, ctx context.Context, adp *adapter.Adapter) {
-				t.Helper()
 				read := adp.Reader(ctx)
 
 				require.NoError(t, adp.SendConnRequest(endpoint, hostname, qshare.LaptopDevice))
@@ -138,7 +135,6 @@ func TestServer_ConnectionInit(t *testing.T) {
 				}))
 			},
 			assert: func(t *testing.T, ctx context.Context, adp *adapter.Adapter) {
-				t.Helper()
 				read := adp.Reader(ctx)
 
 				require.NoError(t, adp.SendConnRequest(endpoint, hostname, qshare.LaptopDevice))
