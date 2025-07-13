@@ -47,10 +47,14 @@ test-no-cache:
 
 ci-tools:
 	go install go.uber.org/mock/mockgen@latest
+	go install github.com/wadey/gocovmerge@latest
 
 ci-test:
 	export CI=true
-	go test $(TEST_FLAGS) -coverprofile=coverage.txt ./...
+	go test $(TEST_FLAGS) -coverprofile=coverage1.txt ./qserver/...
+	go test $(TEST_FLAGS) -coverprofile=coverage2.txt `go list ./... | grep -v qserver`
+	gocovmerge coverage1.txt coverage2.txt > coverage.txt
+	rm -f coverage1.txt coverage2.txt
 
 clean:
 	rm -rfv ./$(PROTO_GEN_DIR)

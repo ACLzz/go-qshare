@@ -419,6 +419,7 @@ func TestServer_SetupTransfer(t *testing.T) {
 			},
 		},
 	}
+
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			ctrl, ctx := gomock.WithContext(t.Context(), t)
