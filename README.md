@@ -12,7 +12,6 @@ To work with android devices (which is the main goal of this project) you need t
 - Refactor all TODOs in codebase
 - Add more tests
 - Usage example in README
-- Docs
 - Security review
 - Security bot to keep track of vulnerabilities in dependent libs
 - Codebase statistics (lines of code / files / dependencies count)

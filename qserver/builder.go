@@ -77,14 +77,14 @@ func (b *serverBuilder) WithDeviceType(device qshare.DeviceType) *serverBuilder 
 	return b
 }
 
-// Add your logger interface implementation to keep your logs consistent.
+// Add logger interface implementation to keep logs format consistent.
 func (b *serverBuilder) WithLogger(logger qshare.Logger) *serverBuilder {
 	b.logger = logger
 	b.isLoggerSet = true
 	return b
 }
 
-// WARNING: only for library internal usage
+// Internal function. Shouldn't be used outside the library.
 func (b *serverBuilder) WithRandom(rng rand.Random) *serverBuilder {
 	b.rand = rng
 	b.isRandomSet = true
@@ -92,6 +92,7 @@ func (b *serverBuilder) WithRandom(rng rand.Random) *serverBuilder {
 }
 
 // Build and return server if no errors occurred.
+// All callbacks are required.
 func (b *serverBuilder) Build(
 	authCallback qshare.AuthCallback,
 	textCallback qshare.TextCallback,

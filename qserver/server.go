@@ -12,6 +12,8 @@ import (
 )
 
 type (
+	// Server instance manage all required services to make your
+	// machine discoverable by other quick share clients.
 	Server struct {
 		conf       serverConfig
 		bleAD      *bluetooth.Advertisement
@@ -26,6 +28,7 @@ type (
 	}
 )
 
+// Start listener and other required services.
 func (s *Server) Listen() error {
 	if err := s.listen(); err != nil {
 		if stopErr := s.Stop(); stopErr != nil {
@@ -64,6 +67,7 @@ func (s *Server) listen() error {
 	return nil
 }
 
+// Gracefully shut down all services.
 func (s *Server) Stop() error {
 	var err, gErr error
 	if s.mDNSServer != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/ACLzz/qshare/qclient/conn"
 )
 
+// Client discover, creates and manages connections to other servers.
 type Client struct {
 	log        qshare.Logger
 	endpointID string // mdns endpoint id

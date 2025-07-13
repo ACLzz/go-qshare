@@ -10,6 +10,7 @@ import (
 	"github.com/ACLzz/qshare/internal/rand"
 )
 
+// Listener creates and manages all incoming connections.
 type Listener struct {
 	sock         net.Listener
 	wg           *sync.WaitGroup
@@ -59,19 +60,20 @@ func (l Listener) Listen() {
 	defer cancel()
 	for {
 		conn, err = l.sock.Accept()
-		if err != nil {
-			select {
-			case <-l.stopCh:
-				return
-			default:
-				l.log.Error("accept conn", err)
-			}
-			continue
-		}
 
-		l.wg.Add(1)
-		c := newConnection(ctx, conn, l.log, l.authCallback, l.textCallback, l.fileCallback, l.rand)
-		go c.Accept(l.wg) // TODO: maybe limit amount of gorutines here
+		select {
+		case <-l.stopCh:
+			return
+		default:
+			if err != nil {
+				l.log.Error("accept conn", err)
+				continue
+			}
+
+			l.wg.Add(1)
+			c := newConnection(ctx, conn, l.log, l.authCallback, l.textCallback, l.fileCallback, l.rand)
+			go c.Accept(l.wg) // TODO: maybe limit amount of gorutines here
+		}
 	}
 }
 

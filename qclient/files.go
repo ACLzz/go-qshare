@@ -7,6 +7,7 @@ import (
 	"github.com/ACLzz/qshare"
 )
 
+// Establishes connection to specified server and sends provided files.
 func (c *Client) SendFiles(
 	ctx context.Context,
 	instance ServerInstance,

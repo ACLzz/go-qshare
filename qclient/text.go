@@ -7,6 +7,7 @@ import (
 	"github.com/ACLzz/qshare"
 )
 
+// Establishes connection to specified server and sends provided text.
 func (c *Client) SendText(
 	ctx context.Context,
 	instance ServerInstance,

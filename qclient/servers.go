@@ -17,6 +17,7 @@ type ServerInstance struct {
 	Hostname string
 }
 
+// Looking for other quick share servers and sends their instances to created chan
 func (c *Client) ListServers(ctx context.Context) (chan ServerInstance, error) {
 	resolv, err := zeroconf.NewResolver()
 	if err != nil {

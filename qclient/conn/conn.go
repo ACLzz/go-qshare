@@ -14,6 +14,8 @@ import (
 
 const max_title_length = 12
 
+// Connection is a unit that communicate with server.
+// It is the core of the Client and it's main logic is contained here.
 type Connection struct {
 	conn    net.Conn
 	log     qshare.Logger

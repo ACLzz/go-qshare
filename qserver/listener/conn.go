@@ -17,6 +17,8 @@ type filePayload struct {
 	IsNotified bool
 }
 
+// connection is a unit that communicate with client and routes it's messages.
+// It is the core of the Server and all it's main logic is contained here.
 type connection struct {
 	ctx       context.Context
 	cancelCtx context.CancelFunc
