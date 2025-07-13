@@ -23,7 +23,7 @@ func TestServer_StartStop(t *testing.T) {
 	t.Run("start_stop_with_listen", func(t *testing.T) {
 		server, err := qserver.NewBuilder().
 			WithRandom(rng).
-			Build(helper.NewStubAuthCallback(true), nil, nil)
+			Build(helper.StubAuthCallback(true), nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -34,7 +34,7 @@ func TestServer_StartStop(t *testing.T) {
 	t.Run("start_stop_without_listen", func(t *testing.T) {
 		server, err := qserver.NewBuilder().
 			WithRandom(rng).
-			Build(helper.NewStubAuthCallback(true), nil, nil)
+			Build(helper.StubAuthCallback(true), nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -56,7 +56,7 @@ func TestServer_mDNS(t *testing.T) {
 			WithRandom(rng).
 			WithHostname(hostname).
 			WithPort(port).
-			Build(helper.NewStubAuthCallback(true), nil, nil)
+			Build(helper.StubAuthCallback(true), nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -80,7 +80,6 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, server.Listen())
 		t.Cleanup(func() {
 			require.NoError(t, server.Stop())
-			helper.WaitForMDNSTTL(t)
 		})
 
 		select {
@@ -98,7 +97,7 @@ func TestServer_mDNS(t *testing.T) {
 
 		server, err := qserver.NewBuilder().
 			WithRandom(rng).
-			Build(helper.NewStubAuthCallback(true), nil, nil)
+			Build(helper.StubAuthCallback(true), nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 
@@ -122,7 +121,6 @@ func TestServer_mDNS(t *testing.T) {
 		require.NoError(t, server.Listen())
 		t.Cleanup(func() {
 			require.NoError(t, server.Stop())
-			helper.WaitForMDNSTTL(t)
 		})
 
 		select {
@@ -155,7 +153,7 @@ func TestServer_bleAdvertisements(t *testing.T) {
 
 		server, err := qserver.NewBuilder().
 			WithRandom(rng).
-			Build(helper.NewStubAuthCallback(true), nil, nil)
+			Build(helper.StubAuthCallback(true), nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, server)
 

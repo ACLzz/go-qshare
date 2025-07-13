@@ -3,6 +3,9 @@ __debug*
 protobuf/*
 mock
 TODO.md
+
+coverage1.out 
+coverage2.out
 coverage.out
 
 !protobuf/*.proto

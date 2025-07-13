@@ -48,7 +48,7 @@ func (c *connection) processTransferRequest(msg []byte) error {
 	}
 
 	return c.adapter.SendTransferResponse(c.authCallback(
-		&c.textMeta.TextMeta,
+		c.textMeta.GetQShareTextMeta(),
 		files,
 		c.adapter.Pin(),
 	))

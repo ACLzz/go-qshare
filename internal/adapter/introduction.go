@@ -11,7 +11,7 @@ import (
 
 type IntroductionFrame struct {
 	Text  *TextMeta
-	Files map[int64]*qshare.FilePayload // TODO: should it be map of pointers?
+	Files map[int64]*qshare.FilePayload
 }
 
 func (f IntroductionFrame) HasText() bool {
@@ -40,60 +40,17 @@ func (a *Adapter) UnmarshalIntroduction(msg []byte) (IntroductionFrame, error) {
 	}
 
 	return IntroductionFrame{
-		Text:  mapTextPayload(text),
-		Files: mapFilePayloads(files),
+		Text:  mapPBTextPayloadToQShare(text),
+		Files: mapPBFilePayloadsToQShare(files),
 	}, nil
 }
 
 func (a *Adapter) SendIntroduction(frame IntroductionFrame) error {
-	var (
-		textMetadata = make([]*pbSharing.TextMetadata, 0)
-		fileMetadata = make([]*pbSharing.FileMetadata, 0)
-	)
-
-	if len(frame.Files) > 0 {
-		for k := range frame.Files {
-			fileMetadata = append(fileMetadata, &pbSharing.FileMetadata{
-				Name:      proto.String(frame.Files[k].Meta.Name),
-				Type:      pbSharing.FileMetadata_UNKNOWN.Enum(),
-				PayloadId: proto.Int64(k),
-				Size:      proto.Int64(frame.Files[k].Meta.Size),
-				MimeType:  proto.String(frame.Files[k].Meta.MimeType),
-				Id:        proto.Int64(int64(uuid.New().ID())),
-			})
-		}
-	}
-	if frame.Text != nil {
-		var textType pbSharing.TextMetadata_Type
-		switch frame.Text.Type {
-		case qshare.TextText:
-			textType = pbSharing.TextMetadata_TEXT
-		case qshare.TextURL:
-			textType = pbSharing.TextMetadata_URL
-		case qshare.TextAddress:
-			textType = pbSharing.TextMetadata_ADDRESS
-		case qshare.TextPhoneNumber:
-			textType = pbSharing.TextMetadata_PHONE_NUMBER
-		default:
-			textType = pbSharing.TextMetadata_UNKNOWN
-		}
-
-		textMetadata = []*pbSharing.TextMetadata{
-			{
-				TextTitle: proto.String(frame.Text.Title),
-				Type:      textType.Enum(),
-				PayloadId: proto.Int64(frame.Text.ID),
-				Size:      proto.Int64(frame.Text.Size),
-				Id:        proto.Int64(rand.Int64()),
-			},
-		}
-	}
-
 	return a.writeSecureFrame(&pbSharing.V1Frame{
 		Type: pbSharing.V1Frame_INTRODUCTION.Enum(),
 		Introduction: &pbSharing.IntroductionFrame{
-			TextMetadata: textMetadata,
-			FileMetadata: fileMetadata,
+			TextMetadata: mapQShareTextPayloadToPB(frame.Text),
+			FileMetadata: mapQShareFilePayloadsToPB(frame.Files),
 		},
 	})
 }
@@ -101,6 +58,13 @@ func (a *Adapter) SendIntroduction(frame IntroductionFrame) error {
 type TextMeta struct {
 	qshare.TextMeta
 	ID int64
+}
+
+func (meta *TextMeta) GetQShareTextMeta() *qshare.TextMeta {
+	if meta == nil {
+		return nil
+	}
+	return &meta.TextMeta
 }
 
 func NewTextMeta(ID int64, t qshare.TextType, title string, size int64) *TextMeta {
@@ -114,7 +78,7 @@ func NewTextMeta(ID int64, t qshare.TextType, title string, size int64) *TextMet
 	}
 }
 
-func mapTextPayload(payloads []*pbSharing.TextMetadata) *TextMeta {
+func mapPBTextPayloadToQShare(payloads []*pbSharing.TextMetadata) *TextMeta {
 	if len(payloads) == 0 {
 		return nil
 	}
@@ -143,7 +107,37 @@ func mapTextPayload(payloads []*pbSharing.TextMetadata) *TextMeta {
 	}
 }
 
-func mapFilePayloads(payloads []*pbSharing.FileMetadata) map[int64]*qshare.FilePayload {
+func mapQShareTextPayloadToPB(text *TextMeta) []*pbSharing.TextMetadata {
+	if text == nil {
+		return nil
+	}
+
+	var textType pbSharing.TextMetadata_Type
+	switch text.Type {
+	case qshare.TextText:
+		textType = pbSharing.TextMetadata_TEXT
+	case qshare.TextURL:
+		textType = pbSharing.TextMetadata_URL
+	case qshare.TextAddress:
+		textType = pbSharing.TextMetadata_ADDRESS
+	case qshare.TextPhoneNumber:
+		textType = pbSharing.TextMetadata_PHONE_NUMBER
+	default:
+		textType = pbSharing.TextMetadata_UNKNOWN
+	}
+
+	return []*pbSharing.TextMetadata{
+		{
+			TextTitle: proto.String(text.Title),
+			Type:      textType.Enum(),
+			PayloadId: proto.Int64(text.ID),
+			Size:      proto.Int64(text.Size),
+			Id:        proto.Int64(rand.Int64()),
+		},
+	}
+}
+
+func mapPBFilePayloadsToQShare(payloads []*pbSharing.FileMetadata) map[int64]*qshare.FilePayload {
 	var fileType qshare.FileType
 	mappedPayloads := make(map[int64]*qshare.FilePayload, len(payloads))
 
@@ -170,6 +164,36 @@ func mapFilePayloads(payloads []*pbSharing.FileMetadata) map[int64]*qshare.FileP
 			},
 			Pr: nil,
 		}
+	}
+
+	return mappedPayloads
+}
+
+func mapQShareFilePayloadsToPB(payloads map[int64]*qshare.FilePayload) []*pbSharing.FileMetadata {
+	var fileType pbSharing.FileMetadata_Type
+	mappedPayloads := make([]*pbSharing.FileMetadata, 0, len(payloads))
+
+	for id := range payloads {
+		switch payloads[id].Meta.Type {
+		case qshare.FileImage:
+			fileType = pbSharing.FileMetadata_IMAGE
+		case qshare.FileVideo:
+			fileType = pbSharing.FileMetadata_VIDEO
+		case qshare.FileApp:
+			fileType = pbSharing.FileMetadata_APP
+		case qshare.FileAudio:
+			fileType = pbSharing.FileMetadata_AUDIO
+		default:
+			fileType = pbSharing.FileMetadata_UNKNOWN
+		}
+		mappedPayloads = append(mappedPayloads, &pbSharing.FileMetadata{
+			Name:      proto.String(payloads[id].Meta.Name),
+			Type:      fileType.Enum(),
+			PayloadId: proto.Int64(id),
+			Size:      proto.Int64(payloads[id].Meta.Size),
+			MimeType:  proto.String(payloads[id].Meta.MimeType),
+			Id:        proto.Int64(int64(uuid.New().ID())),
+		})
 	}
 
 	return mappedPayloads
