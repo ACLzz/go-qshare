@@ -71,7 +71,15 @@ func (l Listener) Listen() {
 			}
 
 			l.wg.Add(1)
-			c := newConnection(ctx, conn, l.log, l.authCallback, l.textCallback, l.fileCallback, l.rand)
+			c := newConnection(
+				ctx,
+				conn,
+				l.log,
+				l.authCallback,
+				l.textCallback,
+				l.fileCallback,
+				l.rand,
+			)
 			go c.Accept(l.wg) // TODO: maybe limit amount of gorutines here
 		}
 	}

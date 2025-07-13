@@ -10,23 +10,14 @@ import (
 
 type clientBuilder struct {
 	rand   rand.Random
-	device qshare.DeviceType
 	logger qshare.Logger
 
-	isLoggerSet     bool
-	isRandomSet     bool
-	isDeviceTypeSet bool
+	isLoggerSet bool
+	isRandomSet bool
 }
 
 func NewBuilder() *clientBuilder {
 	return &clientBuilder{}
-}
-
-// Add specific device type. Default is Unknown.
-func (b *clientBuilder) WithDeviceType(device qshare.DeviceType) *clientBuilder {
-	b.device = device
-	b.isDeviceTypeSet = true
-	return b
 }
 
 // Add logger interface implementation to keep logs format consistent.
@@ -63,7 +54,6 @@ type propagateValueFn func() error
 
 func (b *clientBuilder) propagateDefaultValues() error {
 	funcs := []propagateValueFn{
-		b.propDeviceType,
 		b.propLogger,
 		b.propRandom,
 	}
@@ -75,18 +65,6 @@ func (b *clientBuilder) propagateDefaultValues() error {
 			return err
 		}
 	}
-	return nil
-}
-
-func (b *clientBuilder) propDeviceType() error {
-	if b.isDeviceTypeSet {
-		if !b.device.IsValid() {
-			return ErrInvalidDeviceType
-		}
-		return nil
-	}
-
-	b.device = qshare.UnknownDevice
 	return nil
 }
 
