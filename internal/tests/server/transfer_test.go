@@ -2,7 +2,9 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"sync"
 	"testing"
 
 	"github.com/ACLzz/qshare"
@@ -16,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+var spies sync.Map
 
 func TestServer_Transfer(t *testing.T) {
 	var (
@@ -60,15 +64,20 @@ func TestServer_Transfer(t *testing.T) {
 		},
 		"success/file": {
 			fileCallback: func(t *testing.T, payload qshare.FilePayload) {
-				buf := make([]byte, 12)
-				_, err := payload.Pr.Read(buf)
+				buf := make([]byte, payload.Meta.Size)
+				_, err := io.ReadFull(payload.Pr, buf)
 				require.NoError(t, err)
 				assert.Equal(t, []byte("Hello World!"), buf)
 			},
 			introductionFrame: adapter.IntroductionFrame{
 				Files: map[int64]*qshare.FilePayload{
 					1: {
-						Meta: qshare.FileMeta{},
+						Meta: qshare.FileMeta{
+							Type:     qshare.FileImage,
+							Name:     "image.jpg",
+							MimeType: "image/jpg",
+							Size:     12,
+						},
 					},
 				},
 			},
@@ -78,7 +87,128 @@ func TestServer_Transfer(t *testing.T) {
 				log.EXPECT().Debug(gomock.Any(), gomock.Any()).AnyTimes()
 			},
 			assert: func(t *testing.T, read func() ([]byte, error), adp *adapter.Adapter) {
-				require.NoError(t, adp.SendDataInChunks(1, []byte("Hello World!")))
+				pr, pw := io.Pipe()
+				defer func() {
+					require.NoError(t, pw.Close())
+				}()
+				go func() {
+					_, err := pw.Write([]byte("Hello World!"))
+					require.NoError(t, err)
+				}()
+
+				require.NoError(t, adp.SendFileInChunks(1, qshare.FilePayload{
+					Meta: qshare.FileMeta{
+						Type:     qshare.FileImage,
+						Name:     "image.jpg",
+						MimeType: "image/jpg",
+						Size:     12,
+					},
+					Pr: pr,
+					Pw: pw,
+				}))
+			},
+		},
+		"success/many": {
+			fileCallback: func(t *testing.T, payload qshare.FilePayload) {
+				if val, ok := spies.Load(t.Name()); ok {
+					spies.Swap(t.Name(), val.(int)+1)
+				} else {
+					spies.Store(t.Name(), 1)
+				}
+
+				buf := make([]byte, payload.Meta.Size)
+				_, err := io.ReadFull(payload.Pr, buf)
+				require.NoError(t, err)
+
+				switch payload.Meta.Name {
+				case "image.jpg":
+					assert.Equal(t, []byte("Hello World!"), buf)
+				case "image2.jpg":
+					assert.Equal(t, []byte("Hello World2!"), buf)
+				default:
+					t.Error("unknown file")
+				}
+			},
+			textCallback: func(t *testing.T, payload qshare.TextPayload) {
+				assert.Equal(t, "Hello World3!", payload.Text)
+
+				assert.Equal(t, "Hello...", payload.Meta.Title)
+				assert.Equal(t, int64(13), payload.Meta.Size)
+				assert.Equal(t, qshare.TextText, payload.Meta.Type)
+			},
+			introductionFrame: adapter.IntroductionFrame{
+				Text: &adapter.TextMeta{
+					TextMeta: qshare.TextMeta{
+						Type:  qshare.TextText,
+						Title: "Hello...",
+						Size:  13,
+					},
+					ID: 3,
+				},
+				Files: map[int64]*qshare.FilePayload{
+					1: {
+						Meta: qshare.FileMeta{
+							Type:     qshare.FileImage,
+							Name:     "image.jpg",
+							MimeType: "image/jpg",
+							Size:     12,
+						},
+					},
+					2: {
+						Meta: qshare.FileMeta{
+							Type:     qshare.FileImage,
+							Name:     "image2.jpg",
+							MimeType: "image/jpg",
+							Size:     13,
+						},
+					},
+				},
+			},
+			preapre: func(t *testing.T, log *logMock.MockLogger) {
+				t.Helper()
+				log.EXPECT().Info(gomock.Any()).AnyTimes()
+				log.EXPECT().Debug(gomock.Any(), gomock.Any()).AnyTimes()
+				t.Cleanup(func() {
+					val, ok := spies.Load(t.Name())
+					assert.True(t, ok)
+					assert.Equal(t, 2, val.(int))
+				})
+			},
+			assert: func(t *testing.T, read func() ([]byte, error), adp *adapter.Adapter) {
+				pr1, pw1 := io.Pipe()
+				pr2, pw2 := io.Pipe()
+				defer func() {
+					require.NoError(t, pw1.Close())
+					require.NoError(t, pw2.Close())
+				}()
+				go func() {
+					_, err := pw1.Write([]byte("Hello World!"))
+					require.NoError(t, err)
+					_, err = pw2.Write([]byte("Hello World2!"))
+					require.NoError(t, err)
+				}()
+
+				require.NoError(t, adp.SendFileInChunks(1, qshare.FilePayload{
+					Meta: qshare.FileMeta{
+						Type:     qshare.FileImage,
+						Name:     "image.jpg",
+						MimeType: "image/jpg",
+						Size:     12,
+					},
+					Pr: pr1,
+					Pw: pw1,
+				}))
+				require.NoError(t, adp.SendFileInChunks(2, qshare.FilePayload{
+					Meta: qshare.FileMeta{
+						Type:     qshare.FileImage,
+						Name:     "image2.jpg",
+						MimeType: "image/jpg",
+						Size:     13,
+					},
+					Pr: pr2,
+					Pw: pw2,
+				}))
+				require.NoError(t, adp.SendDataInChunks(3, []byte("Hello World3!")))
 			},
 		},
 	}

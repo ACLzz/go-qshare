@@ -58,7 +58,7 @@ func (c *connection) writeFileChunk(chunk adapter.FileChunk) error {
 	file := c.filePayloads[chunk.FileID]
 	if !file.IsNotified {
 		c.filePayloads[chunk.FileID].IsNotified = true
-		c.fileCallback(file.Pd)
+		go c.fileCallback(file.Pd)
 	}
 
 	if len(chunk.Body) > 0 {

@@ -93,6 +93,10 @@ type (
 	TextTransferCallback func(text string) error
 )
 
+/*
+TODO: SECURITY:
+- implement timeouts between messages
+*/
 func (a *Adapter) Reader(ctx context.Context) func() ([]byte, error) {
 	var (
 		err            error
@@ -158,6 +162,12 @@ func (a *Adapter) Reader(ctx context.Context) func() ([]byte, error) {
 	}
 }
 
+/*
+TODO: SECURITY:
+- sanitize all strings from client
+- implement timeouts between chunks
+- implememnt timeouts between files and texts
+*/
 func (a *Adapter) transferHandler() func(msg []byte) ([]byte, error) {
 	var (
 		frame       *pbConnections.V1Frame

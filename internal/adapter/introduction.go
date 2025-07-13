@@ -22,6 +22,10 @@ func (f IntroductionFrame) HasFiles() bool {
 	return len(f.Files) > 0
 }
 
+/*
+TODO: SECURITY:
+- sanitize all strings
+*/
 func (a *Adapter) UnmarshalIntroduction(msg []byte) (IntroductionFrame, error) {
 	frame, err := unmarshalSharingFrame(msg)
 	if err != nil {

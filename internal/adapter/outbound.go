@@ -186,13 +186,18 @@ func (a *Adapter) SendFileInChunks(payloadID int64, file qshare.FilePayload) err
 		err    error
 		n      int
 		offset int64
-		buf    = make([]byte, FILE_CHUNK_SIZE)
 	)
 	defer func() {
 		if err := file.Pr.Close(); err != nil {
 			a.log.Error("close file pipe reader", err)
 		}
 	}()
+
+	bufSize := FILE_CHUNK_SIZE
+	if file.Meta.Size < FILE_CHUNK_SIZE {
+		bufSize = int(file.Meta.Size)
+	}
+	buf := make([]byte, bufSize)
 
 	// send chunks
 	for {
