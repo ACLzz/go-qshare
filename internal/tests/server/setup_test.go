@@ -418,6 +418,50 @@ func TestServer_SetupTransfer(t *testing.T) {
 				return true
 			},
 		},
+		"error/transfer_rejected": {
+			preapre: func(t *testing.T, log *logMock.MockLogger) {
+				t.Helper()
+				log.EXPECT().Info(gomock.Any()).AnyTimes()
+				log.EXPECT().Debug(gomock.Any(), gomock.Any()).AnyTimes()
+			},
+			assert: func(t *testing.T, read func() ([]byte, error), adp *adapter.Adapter) {
+				require.NoError(t, adp.SendIntroduction(adapter.IntroductionFrame{
+					Text: &adapter.TextMeta{
+						TextMeta: qshare.TextMeta{
+							Type:  qshare.TextText,
+							Title: "text...",
+							Size:  4,
+						},
+					},
+				}))
+				require.NoError(t, adp.SendTransferRequest())
+
+				resp, err := read()
+				require.NoError(t, err)
+				isAccepted, err := adp.UnmarshalTransferResponse(resp)
+				require.NoError(t, err)
+				assert.False(t, isAccepted)
+			},
+			callback: func(t *testing.T, text *qshare.TextMeta, files []qshare.FileMeta, pin uint16) bool {
+				return false
+			},
+		},
+		"error/empty_introduction": {
+			preapre: func(t *testing.T, log *logMock.MockLogger) {
+				t.Helper()
+				log.EXPECT().Info(gomock.Any()).AnyTimes()
+				log.EXPECT().Debug(gomock.Any(), gomock.Any()).AnyTimes()
+				log.EXPECT().Warn("got invalid message", gomock.Any()).AnyTimes()
+			},
+			assert: func(t *testing.T, read func() ([]byte, error), adp *adapter.Adapter) {
+				require.NoError(t, adp.SendIntroduction(adapter.IntroductionFrame{}))
+				require.NoError(t, adp.SendTransferRequest())
+			},
+			callback: func(t *testing.T, text *qshare.TextMeta, files []qshare.FileMeta, pin uint16) bool {
+				t.Fatal("callback should not be called")
+				return false
+			},
+		},
 	}
 
 	for name, tt := range tests {
